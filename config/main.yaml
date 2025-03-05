@@ -1,0 +1,40 @@
+# Configuration for Grekko Trading Bot
+
+# General settings
+general:
+  log_level: INFO
+  timezone: UTC
+
+# Database settings
+database:
+  type: sqlite
+  connection_string: sqlite:///grekko.db
+
+# ECDSA-secured config vault
+config_vault:
+  encryption: AES-256-GCM
+  key_management: ECDSA
+  vault_file: .grekko/config_vault.enc
+
+# CCXT Pro integration
+ccxt_pro:
+  enable: true
+  rate_limit_handling: automatic
+
+# Web3.py and Solders.py integration
+web3:
+  enable: true
+  provider: https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID
+
+solders:
+  enable: true
+  provider: https://api.mainnet-beta.solana.com
+
+# Candlestick stream multiplexer
+candlestick_stream:
+  websocket: true
+  rest_fallback: true
+
+# Risk management settings
+risk_management:
+  max_risk_per_trade: 1.5
