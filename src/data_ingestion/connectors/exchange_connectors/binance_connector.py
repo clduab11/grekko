@@ -25,15 +25,20 @@ class BinanceConnector:
             self.logger.error(f"Unexpected error: {e}")
 
     async def create_order(self, symbol, order_type, side, amount, price=None):
-        try:
-            order = await self.exchange.create_order(symbol, order_type, side, amount, price)
-            return order
-        except ccxt.NetworkError as e:
-            self.logger.error(f"Network error: {e}")
-        except ccxt.ExchangeError as e:
-            self.logger.error(f"Exchange error: {e}")
-        except Exception as e:
-            self.logger.error(f"Unexpected error: {e}")
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
 
     async def triangular_arbitrage(self, base_symbol, quote_symbol, arbitrage_symbol):
         try:
@@ -68,4 +73,3 @@ class BinanceConnector:
                 time.sleep(interval)
         except Exception as e:
             self.logger.error(f"Error in TWAP execution: {e}")
-
