@@ -7,7 +7,8 @@ class PerformanceTracker:
         self.performance_data = pd.DataFrame(columns=['strategy', 'metric', 'value'])
 
     def track_performance(self, strategy, metric, value):
-        self.performance_data = self.performance_data.append({'strategy': strategy, 'metric': metric, 'value': value}, ignore_index=True)
+        new_data = pd.DataFrame([{'strategy': strategy, 'metric': metric, 'value': value}])
+        self.performance_data = pd.concat([self.performance_data, new_data], ignore_index=True)
         self.logger.info(f"Tracked performance: {strategy} - {metric}: {value}")
 
     def calculate_performance_metrics(self):

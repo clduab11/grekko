@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 
 class RiskManager:
     def __init__(self, capital):
@@ -22,3 +23,21 @@ class RiskManager:
             self.logger.info(f"Executing slice {i+1}/{slices} of amount {slice_amount}")
             # Execute the slice order here
             time.sleep(interval)
+
+    def calculate_var(self, returns, confidence_level=0.95):
+        """
+        Calculate Value at Risk (VaR) using historical simulation method.
+        """
+        sorted_returns = np.sort(returns)
+        index = int((1 - confidence_level) * len(sorted_returns))
+        var = sorted_returns[index]
+        return var
+
+    def calculate_cvar(self, returns, confidence_level=0.95):
+        """
+        Calculate Conditional Value at Risk (CVaR) using historical simulation method.
+        """
+        sorted_returns = np.sort(returns)
+        index = int((1 - confidence_level) * len(sorted_returns))
+        cvar = np.mean(sorted_returns[:index])
+        return cvar

@@ -3,6 +3,7 @@ from .strategies.arbitrage_strategy import ArbitrageStrategy
 from .strategies.mean_reversion_strategy import MeanReversionStrategy
 from .strategies.momentum_strategy import MomentumStrategy
 from .strategies.sentiment_strategy import SentimentStrategy
+from ai_adaptation.ml_models.model_trainer import ModelTrainer
 
 class StrategyManager:
     def __init__(self, api_key, api_secret):
@@ -14,6 +15,7 @@ class StrategyManager:
             'sentiment': SentimentStrategy(sentiment_threshold=0.1)
         }
         self.current_strategy = None
+        self.model_trainer = ModelTrainer()
 
     def switch_strategy(self, strategy_name):
         if strategy_name in self.strategies:
@@ -37,3 +39,10 @@ class StrategyManager:
             self.logger.info(f"Updated {strategy_name} strategy with parameters: {params}")
         else:
             self.logger.error(f"Strategy {strategy_name} not found")
+
+    def add_ml_strategy(self, strategy_name, model_filepath, **params):
+        self.model_trainer.load_training_data(model_filepath)
+        self.model_trainer.set_training_parameters(**params)
+        self.model_trainer.train_model()
+        self.strategies[strategy_name] = self.model_trainer.model
+        self.logger.info(f"Added machine learning-based strategy: {strategy_name}")
