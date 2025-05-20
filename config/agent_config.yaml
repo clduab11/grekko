@@ -1,0 +1,91 @@
+# Autonomous Trading Agent Configuration
+
+# General settings
+name: "Grekko"
+description: "LLM-powered autonomous trading agent"
+version: "1.0.0"
+
+# Default exchange to use
+default_exchange: "binance"
+
+# Trading pairs to monitor
+trading_pairs:
+  - "BTC/USDT"
+  - "ETH/USDT"
+  - "SOL/USDT"
+  - "DOGE/USDT"  # Meme coin
+  - "SHIB/USDT"  # Meme coin
+
+# LLM configuration
+llm:
+  provider: "openai"
+  model_name: "gpt-4"
+  temperature: 0.1
+  max_tokens: 1000
+  prompt_template_path: "config/prompts/trading_decision.txt"
+  
+  # Agent personality
+  personality:
+    risk_appetite: "moderate"   # conservative, moderate, aggressive
+    trading_style: "technical"  # technical, sentiment, hybrid
+    time_horizon: "medium"      # short, medium, long
+
+# Risk management parameters
+risk:
+  profile: "balanced"
+  initial_capital: 10000.0
+  max_position_size: 0.2      # Maximum % of capital per position
+  max_open_positions: 5       # Maximum number of concurrent positions
+  min_confidence: 0.7         # Minimum confidence level for trades
+  max_drawdown: 0.15          # Maximum allowed drawdown (15%)
+  stop_loss_enabled: true
+  trailing_stop_enabled: true
+  trailing_stop_distance: 0.05 # 5% trailing stop
+  
+  # Circuit breakers
+  emergency_stop_conditions:
+    - "drawdown > 15%"
+    - "consecutive_losses > 5"
+    - "api_errors > 3"
+
+# Analysis parameters
+analysis:
+  timeframes:
+    - "5m"
+    - "1h"
+    - "4h"
+    - "1d"
+  
+  indicators:
+    - name: "RSI"
+      params: { period: 14 }
+    - name: "MACD"
+      params: { fast_period: 12, slow_period: 26, signal_period: 9 }
+    - name: "Bollinger Bands"
+      params: { period: 20, std_dev: 2 }
+    - name: "Moving Average"
+      params: { period: 50, type: "SMA" }
+    - name: "Moving Average"
+      params: { period: 200, type: "SMA" }
+
+# Execution parameters
+execution:
+  order_type: "market"      # market, limit
+  slippage_tolerance: 0.5   # Max allowed slippage percentage
+  retry_attempts: 3         # Number of retry attempts on failure
+  retry_delay: 5            # Seconds between retries
+
+# Reporting and notifications
+reporting:
+  status_interval: 3600     # Status report interval in seconds
+  performance_metrics:
+    - "profit_loss"
+    - "win_rate"
+    - "sharpe_ratio"
+    - "max_drawdown"
+  notifications:
+    trade_executed: true
+    stop_loss_triggered: true
+    take_profit_triggered: true
+    error_occurred: true
+    emergency_stop: true

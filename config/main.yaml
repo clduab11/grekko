@@ -4,11 +4,26 @@
 general:
   log_level: INFO
   timezone: UTC
+  default_exchange: binance  # Default exchange for trading
+
+# Autonomous agent settings
+agent:
+  auto_start: false  # Set to true to auto-start the trading agent
+  config_file: config/agent_config.yaml
+  status_report_interval: 3600  # Status report interval in seconds
 
 # Database settings
 database:
   type: sqlite
   connection_string: sqlite:///grekko.db
+
+# API server for mobile app
+api_server:
+  enable: true
+  host: 0.0.0.0
+  port: 8000
+  jwt_secret_key_env: JWT_SECRET_KEY
+  access_token_expire_minutes: 30
 
 # ECDSA-secured config vault
 config_vault:
@@ -16,25 +31,68 @@ config_vault:
   key_management: ECDSA
   vault_file: .grekko/config_vault.enc
 
+# Credentials management
+credentials:
+  vault_path: ~/.grekko/credentials.grekko
+  rotation_period_days: 30
+  require_2fa: false
+
 # CCXT Pro integration
 ccxt_pro:
   enable: true
   rate_limit_handling: automatic
+  timeout_ms: 30000
 
 # Web3.py and Solders.py integration
 web3:
   enable: true
   provider: https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID
+  gas_limit_multiplier: 1.1
+  gas_price_strategy: medium
 
 solders:
   enable: true
   provider: https://api.mainnet-beta.solana.com
+  commitment: confirmed
 
 # Candlestick stream multiplexer
 candlestick_stream:
   websocket: true
   rest_fallback: true
+  timeframes:
+    - 1m
+    - 5m
+    - 15m
+    - 1h
+    - 4h
+    - 1d
 
 # Risk management settings
 risk_management:
+  initial_capital: 10000.0
   max_risk_per_trade: 1.5
+  max_drawdown_percent: 15
+  circuit_breaker_enable: true
+
+# Performance tracking
+performance:
+  metrics:
+    - win_rate
+    - profit_factor
+    - sharpe_ratio
+    - max_drawdown
+  track_trades: true
+  backtesting_mode: false
+
+# Notifications
+notifications:
+  email:
+    enable: false
+    smtp_server: smtp.example.com
+    smtp_port: 587
+    from_email: grekko@example.com
+  
+  mobile:
+    enable: true
+    trade_notifications: true
+    error_notifications: true

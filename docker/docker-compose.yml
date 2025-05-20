@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  grekko-app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    volumes:
+      - ..:/app
+      - ~/.grekko:/root/.grekko
+    ports:
+      - "8000:8000"  # API port
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+      - CONFIG_ENV=development
+    command: python src/main.py
+    
+  postgres:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=grekko
+      - POSTGRES_PASSWORD=grekkopassword
+      - POSTGRES_DB=grekko
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+      
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  postgres-data:
+  redis-data:
