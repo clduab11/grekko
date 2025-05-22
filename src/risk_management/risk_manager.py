@@ -45,17 +45,23 @@ class RiskManager:
         self.logger.debug(f"Calculated position size: {position_size} based on risk: {risk_per_trade}, stop loss: {stop_loss_distance}")
         return position_size
 
-    def enforce_risk_limits(self, trade_amount):
+    def enforce_risk_limits(self, trade_amount, market_conditions=None):
         """
         Enforce risk limits on trade amount.
         
         Args:
             trade_amount (float): Proposed trade amount
+            market_conditions (dict, optional): Current market conditions for dynamic adjustment
             
         Returns:
             float: Adjusted trade amount within risk limits
         """
         max_trade_size = self.capital * self.max_trade_size_pct
+        
+        if market_conditions:
+            volatility = market_conditions.get('volatility', 1.0)
+            max_trade_size *= (1 / volatility)  # Adjust max trade size based on market volatility
+        
         if trade_amount > max_trade_size:
             self.logger.warning(f"Trade amount {trade_amount} exceeds max trade size {max_trade_size}. Reducing trade amount.")
             trade_amount = max_trade_size
@@ -189,3 +195,43 @@ class RiskManager:
             self.logger.warning(f"Circuit breaker triggered: drawdown {drawdown:.2%} exceeds max {self.max_drawdown_pct:.2%}")
             
         return should_trigger
+
+    def ai_driven_risk_adjustment(self, market_conditions):
+        """
+        Adjust risk exposure dynamically based on AI-driven market conditions.
+        
+        Args:
+            market_conditions (dict): Current market conditions including volatility, sentiment, etc.
+            
+        Returns:
+            float: Adjusted risk exposure
+        """
+        base_risk = self.max_trade_size_pct
+        volatility = market_conditions.get('volatility', 1.0)
+        sentiment = market_conditions.get('sentiment', 0.5)
+        
+        # Adjust risk based on volatility and sentiment
+        adjusted_risk = base_risk * (1 / volatility) * sentiment
+        self.logger.info(f"Adjusted risk exposure based on market conditions: {adjusted_risk}")
+        
+        return adjusted_risk
+
+    def real_time_risk_assessment(self, market_data):
+        """
+        Perform real-time risk assessment based on market data.
+        
+        Args:
+            market_data (dict): Real-time market data
+            
+        Returns:
+            dict: Risk assessment results
+        """
+        risk_assessment = {
+            "volatility": np.std(market_data.get('prices', [])),
+            "liquidity": np.mean(market_data.get('volumes', [])),
+            "sentiment": market_data.get('sentiment', 0.5)
+        }
+        
+        self.logger.info(f"Real-time risk assessment: {risk_assessment}")
+        
+        return risk_assessment

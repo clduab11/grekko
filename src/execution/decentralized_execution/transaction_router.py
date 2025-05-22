@@ -13,6 +13,7 @@ from datetime import datetime
 
 from ...utils.logger import get_logger
 from ...utils.metrics import track_latency, track_api_call
+from ...utils.encryption import ECDSAKeyManager
 from .wallet_manager import BlockchainNetwork, WalletManager
 
 class DEX(Enum):
@@ -46,6 +47,7 @@ class TransactionRouter:
         wallet_manager (WalletManager): Wallet manager instance
         config (Dict[str, Any]): Router configuration
         logger (logging.Logger): Logger for routing events
+        key_manager (ECDSAKeyManager): Key manager for cryptographic operations
     """
     
     def __init__(self, 
@@ -67,6 +69,9 @@ class TransactionRouter:
         
         self.logger = get_logger('transaction_router')
         self.logger.info("Transaction router initialized")
+        
+        # Initialize key manager for cryptographic operations
+        self.key_manager = ECDSAKeyManager()
         
         # Stats for routing
         self.stats = {
@@ -180,6 +185,9 @@ class TransactionRouter:
                     self.logger.info(f"Split route provides {split_route['price_improvement']:.2%} better price")
                     best_route = split_route
                     self.stats["splits_performed"] += 1
+            
+            # Add cryptographic verification
+            best_route = self._add_cryptographic_verification(best_route)
             
             return best_route
             
@@ -527,3 +535,33 @@ class TransactionRouter:
             dex for dex, info in self.dex_adapters.items() 
             if info["enabled"] and chain in info["chains"]
         ]
+    
+    def _add_cryptographic_verification(self, route: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Add cryptographic verification to the route.
+        
+        Args:
+            route (Dict[str, Any]): Route information
+            
+        Returns:
+            Dict[str, Any]: Route with cryptographic verification
+        """
+        try:
+            # Serialize route data
+            route_data = json.dumps(route).encode()
+            
+            # Sign the route data
+            signature = self.key_manager.sign(route_data)
+            
+            # Add signature to the route
+            route["signature"] = signature.hex()
+            route["verified"] = True
+            
+            self.logger.info("Added cryptographic verification to the route")
+            
+        except Exception as e:
+            self.logger.error(f"Error adding cryptographic verification: {str(e)}")
+            route["verified"] = False
+            route["error"] = str(e)
+        
+        return route
