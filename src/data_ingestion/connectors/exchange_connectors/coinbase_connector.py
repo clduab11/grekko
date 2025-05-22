@@ -41,3 +41,934 @@ class CoinbaseConnector:
             self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
             time.sleep(2 ** attempt)
         self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side, amount, price=None):
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                order = await self.exchange.create_order(symbol, order_type, side, amount, price)
+                return order
+            except ccxt.NetworkError as e:
+                self.logger.error(f"Network error: {e}")
+            except ccxt.ExchangeError as e:
+                self.logger.error(f"Exchange error: {e}")
+            except Exception as e:
+                self.logger.error(f"Unexpected error: {e}")
+            self.logger.info(f"Retrying order creation ({attempt + 1}/{max_retries})")
+            time.sleep(2 ** attempt)
+        self.logger.error("Order creation failed after multiple attempts")
+
+    async def fetch_ticker(self, symbol):
+        try:
+            ticker = await self.exchange.fetch_ticker(symbol)
+            return ticker
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+
+    async def create_order(self, symbol, order_type, side,

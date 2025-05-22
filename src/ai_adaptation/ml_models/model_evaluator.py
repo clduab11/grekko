@@ -35,3 +35,30 @@ class ModelEvaluator:
             'recall': recall,
             'f1_score': f1
         }
+
+    def evaluate_model_real_time(self, model, X_stream, y_stream):
+        """
+        Evaluate the model in real-time using streaming data.
+        
+        Args:
+            model: Trained model to evaluate
+            X_stream: Streaming input features
+            y_stream: Streaming true labels
+            
+        Returns:
+            dict: Evaluation metrics
+        """
+        y_pred_stream = model.predict(X_stream)
+        accuracy = accuracy_score(y_stream, y_pred_stream)
+        precision = precision_score(y_stream, y_pred_stream, average='weighted')
+        recall = recall_score(y_stream, y_pred_stream, average='weighted')
+        f1 = f1_score(y_stream, y_pred_stream, average='weighted')
+
+        self.logger.info(f"Real-Time Model Evaluation - Accuracy: {accuracy}, Precision: {precision}, Recall: {recall}, F1 Score: {f1}")
+
+        return {
+            'accuracy': accuracy,
+            'precision': precision,
+            'recall': recall,
+            'f1_score': f1
+        }
