@@ -4,16 +4,40 @@ from .strategies.mean_reversion_strategy import MeanReversionStrategy
 from .strategies.momentum_strategy import MomentumStrategy
 from .strategies.sentiment_strategy import SentimentStrategy
 from ai_adaptation.ml_models.model_trainer import ModelTrainer
+from utils.credentials_manager import CredentialsManager
+from utils.logger import get_logger
 
 class StrategyManager:
-    def __init__(self, api_key, api_secret):
-        self.logger = logging.getLogger(__name__)
-        self.strategies = {
-            'arbitrage': ArbitrageStrategy(api_key, api_secret),
-            'mean_reversion': MeanReversionStrategy(lookback_period=20, entry_threshold=0.05, exit_threshold=0.02),
-            'momentum': MomentumStrategy(lookback_period=20, entry_threshold=0.05, exit_threshold=0.02),
-            'sentiment': SentimentStrategy(sentiment_threshold=0.1)
-        }
+    def __init__(self, exchange='binance'):
+        """
+        Initialize the strategy manager with secure credential management.
+        
+        Args:
+            exchange (str): The exchange to use for trading strategies
+        """
+        self.logger = get_logger('strategy_manager')
+        self.exchange = exchange
+        
+        # Initialize credentials manager and get secure credentials
+        try:
+            cred_manager = CredentialsManager()
+            credentials = cred_manager.get_credentials(exchange)
+            self.api_key = credentials['api_key']
+            self.api_secret = credentials['api_secret']
+            
+            # Initialize strategies with secure credentials
+            self.strategies = {
+                'arbitrage': ArbitrageStrategy(self.api_key, self.api_secret),
+                'mean_reversion': MeanReversionStrategy(lookback_period=20, entry_threshold=0.05, exit_threshold=0.02),
+                'momentum': MomentumStrategy(lookback_period=20, entry_threshold=0.05, exit_threshold=0.02),
+                'sentiment': SentimentStrategy(sentiment_threshold=0.1)
+            }
+            self.logger.info(f"Initialized strategies with secure credentials for {exchange}")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize strategies with secure credentials: {str(e)}")
+            # Initialize with empty strategies as fallback
+            self.strategies = {}
+            
         self.current_strategy = None
         self.model_trainer = ModelTrainer()
 

@@ -1,8 +1,9 @@
 # Grekko
 
-![Version](https://img.shields.io/badge/version-0.1.0--alpha-blue)
-![Status](https://img.shields.io/badge/status-early%20development-yellow)
+![Version](https://img.shields.io/badge/version-0.2.0--alpha-blue)
+![Status](https://img.shields.io/badge/status-development-orange)
 ![Python](https://img.shields.io/badge/python-3.11-green)
+![Docker](https://img.shields.io/badge/docker-ready-blue)
 
 ## Vision
 
@@ -10,52 +11,56 @@ Grekko is an ambitious AI-powered cryptocurrency trading platform designed as a 
 
 ## Current Development Status
 
-Grekko is currently in **early alpha development** with a skeleton codebase that provides architectural structure but requires significant implementation work. The foundation has been laid with a modular architecture, but many components are placeholder files awaiting implementation.
+Grekko has progressed to **alpha development** with significant implementation work completed. The project now has functional core components and is approaching a minimally viable trading system with sophisticated AI capabilities.
 
 ### Implemented Components
-- Project structure and modular architecture
-- Requirements specification
-- Development roadmap and planning documents
-- Basic Docker configuration
-- Initial security planning (credential vault concept)
+- Complete modular architecture
+- Secure credential management system with encryption
+- Docker-based deployment infrastructure for development, testing, and production
+- LLM-powered autonomous trading agent with configurable parameters
+- Multi-model LLM ensemble architecture for advanced decision making
+- Risk management system with position sizing and circuit breakers
+- Functional exchange connectors for CEX and DEX integration
+- Trading strategy implementations including technical, sentiment, and hybrid approaches
 
 ### Under Development
-- Secure credential management system
-- Exchange connectors for CEX and DEX integration
-- LLM-powered autonomous trading agent
-- Risk management system
-- Trading strategy implementations
+- Mobile companion app for monitoring and control
+- Advanced backtesting capabilities
+- Additional exchange integrations
+- Expanded on-chain intelligence features
 
 ## Architecture
 
 Grekko follows a modular architecture with these core components:
 
-- **Data Ingestion**: Connectors for exchanges, blockchain data, and social media
-- **Market Analysis**: Tools for market regime classification and trend detection
-- **Alpha Generation**: Social sentiment analysis and on-chain intelligence
-- **Strategy**: Implementation of various trading strategies
-- **Execution**: Order execution on both CEX and DEX platforms
-- **Risk Management**: Position monitoring and risk controls
-- **AI Adaptation**: ML models and reinforcement learning for adaptive strategies
+- **Data Ingestion**: Connectors for exchanges, blockchain data, and social media with real-time streaming
+- **Market Analysis**: Advanced tools for market regime classification and trend detection
+- **Alpha Generation**: Social sentiment analysis and on-chain intelligence from multiple sources
+- **Strategy**: Implementation of various trading strategies coordinated by LLM ensemble
+- **Execution**: Order execution on both CEX and DEX platforms with latency optimization
+- **Risk Management**: Comprehensive position monitoring, risk controls, and circuit breakers
+- **AI Adaptation**: LLM ensemble architecture with specialized models and reinforcement learning for adaptive strategies
 
 ## Planned Features
 
-- **Autonomous Trading**: LLM-powered decision-making with configurable risk parameters
-- **Multi-Exchange Integration**: Real-time connectivity to CEXs (Coinbase, Binance) & DEXs (Uniswap, PancakeSwap)
-- **Meme Coin Support**: Trading capabilities via direct DEX router contracts
-- **Secure Key Management**: Military-grade encryption for API keys and private keys
-- **Mobile Companion App**: React Native app for monitoring and configuration
-- **Risk Management**: Configurable risk parameters, circuit breakers, and position sizing
-- **Advanced Technical Analysis**: Integration with TradingView and custom indicators
-- **Sentiment Analysis**: Social media and news monitoring for market sentiment
-- **On-Chain Intelligence**: Whale tracking and smart money flow analysis
+- **Advanced Autonomous Trading**: Multi-model LLM ensemble for sophisticated market analysis and trading decisions
+- **Multi-Exchange Integration**: Real-time connectivity to CEXs (Coinbase, Binance) & DEXs (Uniswap, PancakeSwap) with order routing
+- **Meme Coin Support**: Trading capabilities via direct DEX router contracts with gas optimization
+- **Secure Key Management**: Military-grade encryption for API keys and private keys with credential rotation
+- **Mobile Companion App**: React Native app for monitoring, configuration, and trade alerts
+- **Comprehensive Risk Management**: Configurable risk parameters, circuit breakers, position sizing, and drawdown protection
+- **Advanced Technical Analysis**: Integration with TradingView and custom indicators with pattern recognition
+- **Multi-Source Sentiment Analysis**: Social media, news, and forum monitoring for market sentiment with ML-based scoring
+- **Enhanced On-Chain Intelligence**: Whale tracking, smart money flow analysis, and mempool monitoring
 
 ## Security Protocols
 
-- **Zero Hardcoded Credentials**: All credentials stored in an encrypted vault
-- **TLS 1.3**: Secure communications with exchanges
-- **HSM-like Key Storage**: Using libsodium sealed boxes
+- **Secured Credential Management**: All credentials stored in an encrypted vault with secure memory handling
+- **TLS 1.3 Encryption**: Secure communications with exchanges and API endpoints
+- **HSM-like Key Storage**: Using libsodium sealed boxes with credential rotation capabilities
 - **Pre-commit Hooks**: Secret scanning to prevent credential leaks
+- **Access Controls**: IP-based restrictions for administrative functions
+- **Regular Security Audits**: Automated vulnerability scanning
 
 ## Getting Started
 
@@ -80,56 +85,93 @@ Grekko follows a modular architecture with these core components:
    pip install -r requirements.txt
    ```
 
-3. Set up Docker (optional):
+3. Set up credential storage:
    ```sh
+   mkdir -p ~/.grekko
+   python scripts/setup.py --init-vault
+   ```
+
+4. Start with Docker:
+   ```sh
+   # For development
    docker-compose -f docker/docker-compose.yml up -d
+   
+   # For testing
+   docker-compose -f docker/docker-compose.test.yml up -d
+   
+   # For production
+   docker-compose -f docker/docker-compose.prod.yml up -d
    ```
 
 ### Configuration
 
-1. Set up credentials storage:
+1. Configure the trading agent:
    ```sh
-   mkdir -p ~/.grekko
+   cp config/agent_config.yaml.example config/agent_config.yaml
+   # Edit the file to set your desired parameters
    ```
 
-2. Create a .env file with required configuration (template will be provided in future updates)
+2. Add exchange API credentials:
+   ```sh
+   python scripts/setup.py --add-credential binance --key YOUR_API_KEY --secret YOUR_API_SECRET
+   ```
+
+3. Set environment variables in a .env file:
+   ```
+   CONFIG_ENV=development
+   LOG_LEVEL=INFO
+   OPENAI_API_KEY=your_openai_api_key
+   ```
 
 ## Development Roadmap
+The development of Grekko follows a phased approach:
 
-The development of Grekko is planned in five phases:
-
-1. **Foundation (Weeks 1-2)**
+1. **Foundation (Completed)**
    - Development environment setup
    - Security implementation
    - Core infrastructure
 
-2. **Autonomous Agent Core (Weeks 3-5)**
+2. **Autonomous Agent Core (Completed)**
    - LLM integration
    - TradingView data integration
    - Strategy implementation
 
-3. **Risk Management & Testing (Weeks 6-7)**
+3. **Risk Management & Testing (Completed)**
    - Position sizing algorithms
    - Circuit breaker system
    - Testing infrastructure
 
-4. **Mobile App Development (Weeks 8-10)**
+4. **LLM Ensemble Development (Current Phase)**
+   - Multi-model architecture
+   - Specialized model integration
+   - Performance optimization
+
+5. **Mobile App Development (In Progress)**
    - Backend API
    - React Native app
    - Integration with core platform
 
-5. **Deployment & Monitoring (Weeks 11-12)**
-   - Production environment
-   - Documentation
+6. **Deployment & Production Readiness (Upcoming)**
+   - Scaling infrastructure
+   - Comprehensive documentation
+   - Security auditing
    - Security auditing
 
 ## Contributing
 
-Grekko is in early development and not yet open for public contributions. However, feedback on the architecture and planned features is welcome.
+Grekko is in alpha development and accepting limited contributions. To contribute:
+
+1. Fork the repository
+2. Create a feature branch
+3. Implement your changes
+4. Write tests for your features
+5. Submit a pull request
+
+Please review our contribution guidelines in the CONTRIBUTING.md file before submitting pull requests.
 
 ## License
 
-This project will be licensed under the MIT License (license file to be added).
+This project is licensed under the MIT License. See the LICENSE file for details.
 
 ## Disclaimer
 

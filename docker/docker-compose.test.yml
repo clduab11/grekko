@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  grekko-app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    volumes:
+      - ..:/app
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - CONFIG_ENV=testing
+      - LOG_LEVEL=DEBUG
+      - TEST_MODE=True
+    networks:
+      - grekko-test-network
+    depends_on:
+      - postgres
+      - redis
+    command: ["sh", "-c", "WAIT_FOR_POSTGRES=true WAIT_FOR_REDIS=true /app/docker/docker-entrypoint.sh pytest tests/"]
+    
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_USER: grekko_test
+      POSTGRES_PASSWORD: testing_password
+      POSTGRES_DB: grekko_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    networks:
+      - grekko-test-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grekko_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "\"\"", "--appendonly", "no"]
+    tmpfs:
+      - /data
+    networks:
+      - grekko-test-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+networks:
+  grekko-test-network:
+    driver: bridge

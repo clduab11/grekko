@@ -2,9 +2,11 @@
 
 # General settings
 general:
-  log_level: INFO
+  log_level: INFO  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
   timezone: UTC
+  version: 0.1.0
   default_exchange: binance  # Default exchange for trading
+  default_strategy: momentum  # Options: arbitrage, mean_reversion, momentum, sentiment
 
 # Autonomous agent settings
 agent:
@@ -34,8 +36,10 @@ config_vault:
 # Credentials management
 credentials:
   vault_path: ~/.grekko/credentials.grekko
-  rotation_period_days: 30
-  require_2fa: false
+  encryption: "AES-256-GCM"  # Encryption algorithm for the vault
+  rotation_period_days: 30  # Reminder to rotate API keys periodically
+  require_2fa: false  # Future enhancement for 2FA on vault access
+  min_password_length: 8  # Minimum password length for vault
 
 # CCXT Pro integration
 ccxt_pro:
@@ -68,11 +72,28 @@ candlestick_stream:
     - 1d
 
 # Risk management settings
-risk_management:
+risk:
   initial_capital: 10000.0
-  max_risk_per_trade: 1.5
-  max_drawdown_percent: 15
-  circuit_breaker_enable: true
+  max_position_size_pct: 0.15  # Maximum position size as percentage of capital
+  max_risk_per_trade_pct: 0.01  # Risk per trade (1% of capital)
+  max_drawdown_pct: 0.10  # Maximum drawdown before triggering circuit breaker
+  max_open_positions: 5  # Maximum number of open positions
+  max_concentration_pct: 0.30  # Maximum exposure to a single asset
+  
+  # Circuit breaker settings
+  circuit_breaker:
+    enable: true
+    cooldown_minutes: 30
+    max_consecutive_losses: 3
+    volatility_threshold: 2.5  # Volatility multiplier threshold
+    
+  # Stop loss settings
+  stop_loss:
+    enable: true
+    default_stop_pct: 0.05  # Default stop loss (5% from entry)
+    trailing_stop_enable: true
+    trailing_stop_activation_pct: 0.02  # Trailing stop activates after 2% profit
+    trailing_stop_distance_pct: 0.03  # Trailing stop follows at 3% distance
 
 # Performance tracking
 performance:

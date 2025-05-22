@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  grekko-app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        - BUILD_ENV=production
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: ${GREKKO_CREDENTIALS_PATH:-/var/grekko/credentials}
+        target: /root/.grekko
+        read_only: true
+      - type: bind
+        source: ../logs
+        target: /app/logs
+    env_file:
+      - ../.env.production
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - CONFIG_ENV=production
+      - LOG_LEVEL=INFO
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - grekko-network
+    depends_on:
+      - postgres
+      - redis
+    command: ["sh", "-c", "WAIT_FOR_POSTGRES=true WAIT_FOR_REDIS=true /app/docker/docker-entrypoint.sh python src/main.py"]
+    
+  postgres:
+    image: postgres:14-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-grekko}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_DB: ${POSTGRES_DB:-grekko}
+    volumes:
+      - type: volume
+        source: postgres-data
+        target: /var/lib/postgresql/data
+    networks:
+      - grekko-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grekko"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    secrets:
+      - postgres_password
+      
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    volumes:
+      - type: volume
+        source: redis-data
+        target: /data
+    networks:
+      - grekko-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ../nginx/conf.d:/etc/nginx/conf.d
+      - ../nginx/ssl:/etc/nginx/ssl
+      - ../nginx/www:/usr/share/nginx/html
+    networks:
+      - grekko-network
+    depends_on:
+      - grekko-app
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  grekko-network:
+    driver: bridge
+
+secrets:
+  postgres_password:
+    file: ../secrets/postgres_password.txt

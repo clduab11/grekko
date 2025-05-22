@@ -1,0 +1,91 @@
+# Exchange Configuration for Grekko
+# This file contains configuration for all supported exchanges
+
+# Binance
+binance:
+  name: Binance
+  base_url: https://api.binance.com
+  testnet_url: https://testnet.binance.vision
+  websocket_url: wss://stream.binance.com:9443/ws
+  has_testnet: true
+  timeout: 30000  # milliseconds
+  rate_limit:
+    requests_per_minute: 1200
+    orders_per_second: 10
+  default_markets:
+    - BTC/USDT
+    - ETH/USDT
+    - SOL/USDT
+    - BNB/USDT
+  fee_structure:
+    maker: 0.001
+    taker: 0.001
+  order_types:
+    - market
+    - limit
+    - stop_loss
+    - take_profit
+    - stop_limit
+  position_modes:
+    - one-way
+    - hedge
+
+# Coinbase
+coinbase:
+  name: Coinbase Pro
+  base_url: https://api.exchange.coinbase.com
+  testnet_url: https://api-public.sandbox.exchange.coinbase.com
+  websocket_url: wss://ws-feed.exchange.coinbase.com
+  has_testnet: true
+  timeout: 30000  # milliseconds
+  rate_limit:
+    requests_per_minute: 300
+    orders_per_minute: 30
+  default_markets:
+    - BTC/USD
+    - ETH/USD
+    - SOL/USD
+  fee_structure:
+    maker: 0.0050
+    taker: 0.0050
+  order_types:
+    - market
+    - limit
+    - stop
+
+# Uniswap
+uniswap:
+  name: Uniswap V3
+  router_address: "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+  factory_address: "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+  chain_id: 1  # Ethereum mainnet
+  testnet_chain_id: 5  # Goerli testnet
+  version: 3
+  timeout: 60000  # milliseconds
+  default_markets:
+    - ETH/USDT
+    - WBTC/ETH
+    - USDC/USDT
+  fee_tiers:
+    - 0.0005  # 0.05%
+    - 0.003   # 0.3%
+    - 0.01    # 1%
+  gas_limit_multiplier: 1.5
+  slippage_tolerance: 0.005  # 0.5%
+
+# Sushiswap
+sushiswap:
+  name: SushiSwap
+  router_address: "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
+  factory_address: "0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac"
+  chain_id: 1  # Ethereum mainnet
+  testnet_chain_id: 5  # Goerli testnet
+  version: 1
+  timeout: 60000  # milliseconds
+  default_markets:
+    - ETH/USDT
+    - WBTC/ETH
+  fee_tiers:
+    - 0.003   # 0.3%
+  gas_limit_multiplier: 1.5
+  slippage_tolerance: 0.01  # 1%

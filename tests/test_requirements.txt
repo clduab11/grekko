@@ -1,0 +1,9 @@
+# Test dependencies for Grekko
+pytest==7.4.0
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+pytest-xdist==3.3.1
+pytest-mock==3.12.0
+matplotlib==3.7.2
+pandas==2.0.3
+numpy==1.24.3

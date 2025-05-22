@@ -1,2 +1,31 @@
 # Ignore Grekko vault files
 *.grekko
+
+# Logs
+logs/
+*.log
+
+# Cache directories
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+*.egg-info/
+build/
+dist/
