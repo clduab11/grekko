@@ -1,70 +1,80 @@
 # Grekko
 
-![Version](https://img.shields.io/badge/version-0.2.0--alpha-blue)
-![Status](https://img.shields.io/badge/status-development-orange)
+![Version](https://img.shields.io/badge/version-1.0.0--beta-blue)
+![Status](https://img.shields.io/badge/status-beta-green)
 ![Python](https://img.shields.io/badge/python-3.11-green)
 ![Docker](https://img.shields.io/badge/docker-ready-blue)
+![LLM](https://img.shields.io/badge/LLM-powered-purple)
 
 ## Vision
 
-Grekko is an ambitious AI-powered cryptocurrency trading platform designed as a semi-autonomous LLM-backed trading agent. Unlike conventional trading bots or signal providers, Grekko aims to function as an independent agent capable of making trading decisions and executing them with minimal human intervention. By integrating advanced AI technologies with technical analysis, sentiment analysis, and on-chain intelligence, Grekko strives to identify profitable trading opportunities across both centralized and decentralized exchanges.
+Grekko is a next-generation AI-powered cryptocurrency trading platform built as a multi-agent orchestration system. Moving beyond conventional algorithmic trading, Grekko harnesses the power of specialized Large Language Models (LLMs) to form a collaborative intelligence network that analyzes markets, generates trading insights, and executes strategies with precision. Designed for both automated and assisted trading, Grekko bridges the gap between sophisticated institutional trading systems and accessible retail tools.
 
-## Current Development Status
+## Key Features
 
-Grekko has progressed to **alpha development** with significant implementation work completed. The project now has functional core components and is approaching a minimally viable trading system with sophisticated AI capabilities.
+### Multi-Agent Architecture
+- **Agent Orchestration System**: Collaborative network of specialized LLM agents working together
+- **Autonomous Decision Making**: Advanced AI-powered strategy development and execution
+- **Dual-Mode Operation**: Choose between fully autonomous trading or assisted decision support
 
-### Implemented Components
-- Complete modular architecture
-- Secure credential management system with encryption
-- Docker-based deployment infrastructure for development, testing, and production
-- LLM-powered autonomous trading agent with configurable parameters
-- Multi-model LLM ensemble architecture for advanced decision making
-- Risk management system with position sizing and circuit breakers
-- Functional exchange connectors for CEX and DEX integration
-- Trading strategy implementations including technical, sentiment, and hybrid approaches
+### Comprehensive Market Intelligence
+- **Multi-Source Data Integration**: Real-time data from exchanges, blockchains, and social platforms
+- **Advanced Market Analysis**: Sophisticated pattern recognition and market regime classification
+- **Sentiment & On-Chain Intelligence**: Social signal processing and blockchain analytics
 
-### Under Development
-- Mobile companion app for monitoring and control
-- Advanced backtesting capabilities
-- Additional exchange integrations
-- Expanded on-chain intelligence features
+### Robust Trading Capabilities
+- **Multi-Exchange Integration**: Seamless trading on major CEX and DEX platforms
+- **Smart Order Routing**: Optimized execution across venues for best pricing
+- **Risk Management**: Comprehensive position sizing, circuit breakers, and drawdown protection
 
-## Architecture
+### Enterprise-Grade Security
+- **Secure Credential Management**: Military-grade encryption for API keys and private keys
+- **Continuous Monitoring**: Real-time system health and performance tracking
+- **Configurable Safety Guardrails**: Fine-grained control over autonomous trading boundaries
 
-Grekko follows a modular architecture with these core components:
+## Agent Orchestration
 
-- **Data Ingestion**: Connectors for exchanges, blockchain data, and social media with real-time streaming
-- **Market Analysis**: Advanced tools for market regime classification and trend detection
-- **Alpha Generation**: Social sentiment analysis and on-chain intelligence from multiple sources
-- **Strategy**: Implementation of various trading strategies coordinated by LLM ensemble
-- **Execution**: Order execution on both CEX and DEX platforms with latency optimization
-- **Risk Management**: Comprehensive position monitoring, risk controls, and circuit breakers
-- **AI Adaptation**: LLM ensemble architecture with specialized models and reinforcement learning for adaptive strategies
+Grekko's core innovation is its Multi-Agent Orchestration System. Unlike single-model trading systems, Grekko distributes tasks across specialized agents:
 
-## Planned Features
+- **Market Analyst Agent**: Technical analysis and trend identification
+- **Risk Assessment Agent**: Portfolio risk evaluation and position sizing
+- **Strategy Optimization Agent**: Performance analysis and parameter tuning
+- **Execution Planning Agent**: Order routing and execution timing
+- **Sentiment Analysis Agent**: Social media and news sentiment tracking
+- **Portfolio Management Agent**: Asset allocation and rebalancing
 
-- **Advanced Autonomous Trading**: Multi-model LLM ensemble for sophisticated market analysis and trading decisions
-- **Multi-Exchange Integration**: Real-time connectivity to CEXs (Coinbase, Binance) & DEXs (Uniswap, PancakeSwap) with order routing
-- **Meme Coin Support**: Trading capabilities via direct DEX router contracts with gas optimization
-- **Secure Key Management**: Military-grade encryption for API keys and private keys with credential rotation
-- **Mobile Companion App**: React Native app for monitoring, configuration, and trade alerts
-- **Comprehensive Risk Management**: Configurable risk parameters, circuit breakers, position sizing, and drawdown protection
-- **Advanced Technical Analysis**: Integration with TradingView and custom indicators with pattern recognition
-- **Multi-Source Sentiment Analysis**: Social media, news, and forum monitoring for market sentiment with ML-based scoring
-- **Enhanced On-Chain Intelligence**: Whale tracking, smart money flow analysis, and mempool monitoring
+These agents collaborate under a master orchestrator, combining their specialized insights to form a unified trading intelligence.
 
-## Security Protocols
+## Dual-Mode Operation
 
-- **Secured Credential Management**: All credentials stored in an encrypted vault with secure memory handling
-- **TLS 1.3 Encryption**: Secure communications with exchanges and API endpoints
-- **HSM-like Key Storage**: Using libsodium sealed boxes with credential rotation capabilities
-- **Pre-commit Hooks**: Secret scanning to prevent credential leaks
-- **Access Controls**: IP-based restrictions for administrative functions
-- **Regular Security Audits**: Automated vulnerability scanning
+### Grekko Mode
+Interactive trade assistance providing insights and recommendations while keeping the human in control:
+- Strategy recommendations with detailed rationale
+- Risk assessment for potential trades
+- Performance analytics and portfolio insights
+- Learning from your trading preferences
+
+### Gordon Gekko Mode
+Fully autonomous trading with MCP (Model Context Protocol) integration for independent operation:
+- Autonomous market analysis and trading decisions
+- Real-time execution on configured exchanges
+- Self-adjusting strategies based on market conditions
+- Comprehensive audit logs and performance reporting
+
+## Paper Trading System
+
+Test strategies with real market data but zero financial risk:
+
+- **Realistic Simulation**: Accurate modeling of market conditions, slippage, and fees
+- **Comprehensive Analytics**: Detailed performance metrics and risk analysis
+- **Transition Planning**: Data-driven evaluation of readiness for live trading
+- **Web Dashboard**: Real-time monitoring of paper trading performance
+
+Learn more about paper trading in our [detailed documentation](docs/PAPER_TRADING.md).
 
 ## Getting Started
 
-> ⚠️ **WARNING**: Grekko is in early development and not yet ready for production use. The following instructions are for development purposes only.
+> ⚠️ **NOTE**: While Grekko has progressed to beta status, we recommend starting with Paper Trading Mode to safely test strategies before using real funds.
 
 ### Prerequisites
 
@@ -88,7 +98,7 @@ Grekko follows a modular architecture with these core components:
 3. Set up credential storage:
    ```sh
    mkdir -p ~/.grekko
-   python scripts/setup.py --init-vault
+   python scripts/setup.sh --init-vault
    ```
 
 4. Start with Docker:
@@ -105,61 +115,69 @@ Grekko follows a modular architecture with these core components:
 
 ### Configuration
 
-1. Configure the trading agent:
+1. Configure the agent orchestration system:
    ```sh
    cp config/agent_config.yaml.example config/agent_config.yaml
    # Edit the file to set your desired parameters
    ```
 
-2. Add exchange API credentials:
-   ```sh
-   python scripts/setup.py --add-credential binance --key YOUR_API_KEY --secret YOUR_API_SECRET
+2. Enable Paper Trading (Recommended for Testing):
+   ```yaml
+   # In config/main.yaml, set:
+   paper_trading:
+     enabled: true
+     account:
+       name: "Paper Trading Account"
+       initial_balances:
+         USDT: 10000.0
    ```
 
-3. Set environment variables in a .env file:
+3. Add exchange API credentials:
+   ```sh
+   python scripts/setup.sh --add-credential binance --key YOUR_API_KEY --secret YOUR_API_SECRET
+   ```
+
+4. Set environment variables in a .env file:
    ```
    CONFIG_ENV=development
    LOG_LEVEL=INFO
    OPENAI_API_KEY=your_openai_api_key
    ```
 
-## Development Roadmap
-The development of Grekko follows a phased approach:
+## Architecture
 
-1. **Foundation (Completed)**
-   - Development environment setup
-   - Security implementation
-   - Core infrastructure
+Grekko follows a modular architecture designed for flexibility, security, and performance:
 
-2. **Autonomous Agent Core (Completed)**
-   - LLM integration
-   - TradingView data integration
-   - Strategy implementation
+- **Agent Orchestration Layer**: Manages the multi-agent system and workflow
+- **Data Ingestion Layer**: Collects and normalizes data from multiple sources
+- **Analysis Layer**: Processes market data and generates insights
+- **Strategy Layer**: Implements trading strategies and signals
+- **Execution Layer**: Handles order routing and trade execution
+- **Risk Management Layer**: Monitors and controls trading risk
+- **Security Layer**: Protects credentials and communications
+- **UI Layer**: Provides monitoring and control interfaces
 
-3. **Risk Management & Testing (Completed)**
-   - Position sizing algorithms
-   - Circuit breaker system
-   - Testing infrastructure
+## Current Development Status
 
-4. **LLM Ensemble Development (Current Phase)**
-   - Multi-model architecture
-   - Specialized model integration
-   - Performance optimization
+Grekko has progressed to **beta status** with all core components implemented and operational. Key milestones include:
 
-5. **Mobile App Development (In Progress)**
-   - Backend API
-   - React Native app
-   - Integration with core platform
+- ✅ Complete multi-agent orchestration system
+- ✅ Dual-mode operation (assisted and autonomous)
+- ✅ Comprehensive paper trading environment
+- ✅ Integration with major exchanges (CEX and DEX)
+- ✅ Advanced risk management system
+- ✅ Secure credential management
 
-6. **Deployment & Production Readiness (Upcoming)**
-   - Scaling infrastructure
-   - Comprehensive documentation
-   - Security auditing
-   - Security auditing
+### Under Development
+
+- 🔄 Mobile companion app
+- 🔄 Advanced analytics dashboard
+- 🔄 Extended exchange integrations
+- 🔄 Enhanced on-chain intelligence
 
 ## Contributing
 
-Grekko is in alpha development and accepting limited contributions. To contribute:
+Grekko welcomes contributions from the community. To contribute:
 
 1. Fork the repository
 2. Create a feature branch
@@ -167,7 +185,15 @@ Grekko is in alpha development and accepting limited contributions. To contribut
 4. Write tests for your features
 5. Submit a pull request
 
-Please review our contribution guidelines in the CONTRIBUTING.md file before submitting pull requests.
+Please review our contribution guidelines in the CONTRIBUTING.md file before submitting.
+
+## Documentation
+
+- [Paper Trading Guide](docs/PAPER_TRADING.md)
+- [Agent Orchestration](docs/AGENT_ORCHESTRATION.md)
+- [Decentralized Execution](docs/DECENTRALIZED_EXECUTION.md)
+- [LLM Ensemble Design](docs/LLM_ENSEMBLE_DESIGN.md)
+- [Implementation Plan](docs/IMPLEMENTATION_PLAN_PHASE2.md)
 
 ## License
 
@@ -175,4 +201,4 @@ This project is licensed under the MIT License. See the LICENSE file for details
 
 ## Disclaimer
 
-Cryptocurrency trading involves significant risk. Grekko is an experimental software project and should not be used with real funds at this stage. The developers are not responsible for any financial losses incurred through the use of this software.
+Cryptocurrency trading involves significant risk. While Grekko provides sophisticated tools for trading, the developers are not responsible for any financial losses incurred through the use of this software. Always exercise caution, start with paper trading, and never invest funds you cannot afford to lose.
