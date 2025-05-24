@@ -1,289 +1,245 @@
 # Grekko
 
-![Version](https://img.shields.io/badge/version-1.2.0--beta-blue)
-![Status](https://img.shields.io/badge/status-beta-green)
-![Python](https://img.shields.io/badge/python-3.11-green)
-![Docker](https://img.shields.io/badge/docker-ready-blue)
-![LLM](https://img.shields.io/badge/LLM--ensemble-powered-purple)
-![Solana](https://img.shields.io/badge/solana-integrated-orange)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/release/python-3110/)
+[![Build Status](https://github.com/your-org/grekko/actions/workflows/ci.yml/badge.svg)](.github/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-0.1.0-informational)](setup.cfg)
 
-## Vision
+---
 
-Grekko is a next-generation AI-powered cryptocurrency trading platform built as a multi-agent orchestration system. Moving beyond conventional algorithmic trading, Grekko harnesses the power of specialized Large Language Models (LLMs) to form a collaborative intelligence network that analyzes markets, generates trading insights, and executes strategies with precision. Designed for both automated and assisted trading, Grekko bridges the gap between sophisticated institutional trading systems and accessible retail tools.
+**Grekko** is a next-generation, AI-driven cryptocurrency trading platform featuring ensemble decision-making, multi-exchange and on-chain intelligence, Solana sniping, robust risk management, and a modular, extensible architecture. Designed for both researchers and advanced traders, Grekko enables rapid strategy development, real-time execution, and deep analytics across centralized and decentralized markets.
 
-## Key Features
+---
 
-### Multi-Agent Architecture
-- **Agent Orchestration System**: Collaborative network of specialized LLM agents working together
-- **Autonomous Decision Making**: Advanced AI-powered strategy development and execution
-- **Dual-Mode Operation**: Choose between fully autonomous trading or assisted decision support
+## 🚀 Key Features
 
-### Comprehensive Market Intelligence
-- **Multi-Source Data Integration**: Real-time data from exchanges, blockchains, and social platforms
-- **Advanced Market Analysis**: Sophisticated pattern recognition and market regime classification
-- **Sentiment & On-Chain Intelligence**: Social signal processing, dark web scanning, and blockchain analytics
-- **Multi-Model Analysis**: Ensemble of specialized LLMs for complementary market insights
+- **AI Ensemble Trading:** Adaptive agent orchestration, LLM/ML-based alpha generation, and reinforcement learning.
+- **Multi-Exchange & On-Chain Intelligence:** Integrates CEX, DEX, and on-chain data for holistic market analysis.
+- **Solana Sniper Bot:** Sub-second detection and execution on new Solana tokens, with advanced safety/rug detection.
+- **Risk Management:** Circuit breakers, exposure controls, stop-loss, and anonymity modules.
+- **TradingView Webhook Support:** Secure, real-time trade execution via TradingView alerts.
+- **Modular API:** FastAPI-based, with REST and WebSocket endpoints for control, monitoring, and integration.
+- **Extensive Testing:** Unit, integration, and simulation test suites for reliability and research.
+- **Dockerized Deployment:** Production-ready Dockerfile and Compose for easy setup.
+- **Configurable & Extensible:** YAML-based config, plugin-ready, and open for community contributions.
 
-### Robust Trading Capabilities
-- **Multi-Exchange Integration**: Seamless trading on major CEX and DEX platforms
-- **Smart Order Routing**: Optimized execution across venues for best pricing
-- **Risk Management**: Comprehensive position sizing, circuit breakers, and drawdown protection
-- **Solana Sniper Module**: High-frequency detection and trading for new token launches
-- **Privacy-Enhanced Execution**: Transaction mixing and address rotation for enhanced privacy
+---
 
-### Enterprise-Grade Security
-- **Secure Credential Management**: Military-grade encryption for API keys and private keys
-- **Continuous Monitoring**: Real-time system health and performance tracking
-- **Configurable Safety Guardrails**: Fine-grained control over autonomous trading boundaries
+## 🏗️ Architecture Overview
 
-## Agent Orchestration
+Grekko is organized into modular components:
 
-Grekko's core innovation is its Multi-Agent Orchestration System utilizing an ensemble of specialized Large Language Models. Unlike single-model trading systems, Grekko distributes tasks across specialized agents:
+```
+src/
+├── ai_adaptation/         # Adaptive agents, LLM ensemble, RL, model training
+├── alpha_generation/      # Alpha signals: on-chain, social, alt-data, volatility
+├── api/                   # FastAPI app, TradingView webhook, REST/WebSocket
+├── data_ingestion/        # Exchange, on-chain, and off-chain data connectors
+├── execution/             # CEX/DEX execution, decentralized protocols, smart contracts
+├── execution_protocol/    # Position management, trade recording, exit handling
+├── feedback_loop/         # Model updating, performance analytics, strategy optimization
+├── market_analysis/       # Regime detection, trending assets, regulatory/news
+├── monitoring/            # Metrics collection and logging
+├── paper_trading/         # Simulated trading environment
+├── risk_management/       # Circuit breakers, exposure, stop-loss, anonymity
+├── safety/                # Emergency controls
+├── solana_sniper/         # Token monitor, safety analyzer, auto-buyer
+├── strategy/              # Strategy manager, position sizing, trade evaluation
+├── utils/                 # Config, credentials, encryption, logging, web3
+└── main.py                # Entry point, orchestrates all components
+```
 
-- **Market Analyst Agent**: Technical analysis and trend identification
-- **Risk Assessment Agent**: Portfolio risk evaluation and position sizing
-- **Strategy Optimization Agent**: Performance analysis and parameter tuning
-- **Execution Planning Agent**: Order routing and execution timing
-- **Sentiment Analysis Agent**: Social media, news, and dark web sentiment tracking
-- **Portfolio Management Agent**: Asset allocation and rebalancing
-- **Market Regime Agent**: Identifying market phases and adapting strategies
-- **Privacy Enhancement Agent**: Transaction obfuscation and security management
+See [`IMPLEMENTATION_SUMMARY.md`](IMPLEMENTATION_SUMMARY.md) and [`FUTURE_ROADMAP.md`](FUTURE_ROADMAP.md) for details.
 
-These agents collaborate under a master orchestration model using Claude-3.5-Sonnet, combining their specialized insights to form a unified trading intelligence. Each agent leverages a specialized LLM (GPT-4 or Claude variants) optimized for specific analysis types.
+---
 
-## Dual-Mode Operation
-
-### Grekko Mode
-Interactive trade assistance providing insights and recommendations while keeping the human in control:
-- Strategy recommendations with detailed rationale from the LLM ensemble
-- Risk assessment for potential trades
-- Performance analytics and portfolio insights
-- Learning from your trading preferences
-- Sentiment and on-chain analysis with explanation
-
-### Gordon Gekko Mode
-Fully autonomous trading with MCP (Model Context Protocol) integration for independent operation:
-- Autonomous market analysis and trading decisions
-- Real-time execution on configured exchanges
-- Self-adjusting strategies based on market conditions
-- Privacy-enhanced transaction execution
-- Comprehensive audit logs and performance reporting
-- Automatic strategy adaptation to changing market regimes
-
-## Specialized Trading Systems
-
-### Paper Trading Environment
-
-Test strategies with real market data but zero financial risk:
-
-- **Realistic Simulation**: Accurate modeling of market conditions, slippage, and fees
-- **Comprehensive Analytics**: Detailed performance metrics and risk analysis
-- **Transition Planning**: Data-driven evaluation of readiness for live trading
-- **Web Dashboard**: Real-time monitoring of paper trading performance
-
-Learn more about paper trading in our [detailed documentation](docs/PAPER_TRADING.md).
-
-### Solana Sniper System
-
-High-frequency trading system for new Solana token launches:
-
-- **Sub-second Detection**: WebSocket monitoring for instant new token discovery
-- **Safety Analysis**: Automated rug pull detection and safety scoring
-- **MEV Protection**: Jito bundle integration prevents frontrunning
-- **Auto-scaling**: Dynamic position sizing based on safety scores
-- **Real-time API**: WebSocket API for live trade monitoring
-
-Learn more about the Solana Sniper in our [dedicated guide](SOLANA_SNIPER_README.md).
-
-## Getting Started
-
-> ⚠️ **NOTE**: While Grekko has progressed to beta status, we recommend starting with Paper Trading Mode to safely test strategies before using real funds.
+## 📦 Installation
 
 ### Prerequisites
 
 - Python 3.11+
-- Docker
-- Git
-- PostgreSQL
+- PostgreSQL (for trade/performance storage)
+- [Optional] Docker & Docker Compose
 
-### Installation
+### 1. Clone & Environment Setup
 
-1. Clone the repository:
-   ```sh
-   git clone https://github.com/clduab11/grekko.git
-   cd grekko
-   ```
+```bash
+git clone https://github.com/your-org/grekko.git
+cd grekko
+chmod +x setup_env.sh start_sniper.py
+./setup_env.sh
+source ~/.bashrc  # or ~/.zshrc
+```
 
-2. Install the required Python packages:
-   ```sh
-   pip install -r requirements.txt
-   ```
+### 2. Install Python Dependencies
 
-3. Set up credential storage:
-   ```sh
-   mkdir -p ~/.grekko
-   python scripts/setup.sh --init-vault
-   ```
+```bash
+pip install -r requirements.txt
+```
 
-4. Set up PostgreSQL database:
-   ```sh
-   # Using Docker
-   docker run -d \
-     --name grekko-postgres \
-     -e POSTGRES_USER=grekko \
-     -e POSTGRES_PASSWORD=grekkopassword \
-     -e POSTGRES_DB=grekko \
-     -p 5432:5432 \
-     postgres:14
-   ```
+### 3. [Optional] Install Test Dependencies
 
-5. Start with Docker:
-   ```sh
-   # For development
-   docker-compose -f docker/docker-compose.yml up -d
-   
-   # For testing
-   docker-compose -f docker/docker-compose.test.yml up -d
-   
-   # For production
-   docker-compose -f docker/docker-compose.prod.yml up -d
-   ```
+```bash
+pip install -r tests/test_requirements.txt
+```
 
-### Configuration
+### 4. [Optional] Docker Deployment
 
-1. Configure the agent orchestration system:
-   ```sh
-   cp config/agent_config.yaml.example config/agent_config.yaml
-   # Edit the file to set your desired parameters
-   ```
+Build and run the full stack (API, bot, DB):
 
-2. Configure the LLM ensemble:
-   ```yaml
-   # In config/main.yaml, adjust LLM ensemble settings:
-   llm_ensemble:
-     enabled: true
-     models:
-       meta_model: "claude-3.5-sonnet"
-       technical_analysis: "gpt-4"
-       market_regime: "claude-3-opus"
-       sentiment: "claude-3.5-sonnet"
-       risk_assessment: "gpt-4"
-     weights:
-       technical: 0.3
-       regime: 0.3
-       sentiment: 0.2
-       risk: 0.2
-   ```
+```bash
+docker-compose -f docker/docker-compose.yml up --build
+```
 
-3. Enable Paper Trading (Recommended for Testing):
-   ```yaml
-   # In config/main.yaml, set:
-   paper_trading:
-     enabled: true
-     account:
-       name: "Paper Trading Account"
-       initial_balances:
-         USDT: 10000.0
-   ```
+Or build the main app image:
 
-4. Add exchange API credentials:
-   ```sh
-   python scripts/setup.sh --add-credential binance --key YOUR_API_KEY --secret YOUR_API_SECRET
-   ```
+```bash
+docker build -t grekko:latest -f docker/Dockerfile .
+docker run --env-file .env -p 8000:8000 grekko:latest
+```
 
-5. Configure Solana Sniper (Optional):
-   ```yaml
-   # In config/main.yaml
-   solana_sniper:
-     enabled: true
-     max_buy_amount_sol: 0.05
-     min_safety_score: 70
-     slippage_bps: 300
-     use_jito: true
-   ```
+---
 
-6. Set environment variables in a .env file:
-   ```
-   CONFIG_ENV=development
-   LOG_LEVEL=INFO
-   OPENAI_API_KEY=your_openai_api_key
-   CLAUDE_API_KEY=your_claude_api_key
-   DATABASE_URL=postgresql://grekko:grekkopassword@localhost:5432/grekko
-   HELIUS_API_KEY=your_helius_api_key  # For Solana monitoring
-   ```
+## ⚙️ Configuration
 
-7. Configure Solana Sniper (optional):
-   ```sh
-   # Generate a new Solana wallet if you don't have one
-   solana-keygen new --no-bip39-passphrase
-   
-   # Add the wallet path to your .env file
-   echo "SOLANA_WALLET_PATH=/path/to/keypair.json" >> .env
-   ```
+All configuration is managed via YAML files in [`config/`](config/):
 
-## Architecture
+- `main.yaml` – Core settings (API, logging, DB, etc.)
+- `agent_config.yaml` – AI agent and ensemble parameters
+- `exchanges.yaml` – Exchange API keys and endpoints
+- `risk_parameters.yaml` – Risk management thresholds
+- `strategies.yaml` – Strategy selection and tuning
+- `tokens.yaml` – Token allow/block lists
 
-Grekko follows a modular architecture designed for flexibility, security, and performance:
+**Example: `config/main.yaml`**
+```yaml
+api:
+  host: 0.0.0.0
+  port: 8000
+database:
+  url: postgresql://grekko:grekkopassword@localhost:5432/grekko
+logging:
+  level: INFO
+```
 
-- **Agent Orchestration Layer**: Manages the multi-agent LLM ensemble system and workflow
-- **Data Ingestion Layer**: Collects and normalizes data from multiple sources
-- **Analysis Layer**: Processes market data and generates insights
-- **Strategy Layer**: Implements trading strategies and signals
-- **Execution Layer**: Handles order routing and trade execution (centralized and decentralized)
-- **Risk Management Layer**: Monitors and controls trading risk
-- **Security Layer**: Protects credentials and communications
-- **Privacy Layer**: Enhances transaction privacy through obfuscation techniques
-- **UI Layer**: Provides monitoring and control interfaces
+**Environment Variables:**  
+See `.env.production.example` for required secrets (API keys, DB credentials, TradingView webhook secret, etc).
 
-## Current Development Status
+---
 
-Grekko has progressed to **beta status** (v1.2.0) with all core components implemented and operational. Key milestones include:
+## 🏃 Usage
 
-- ✅ LLM ensemble multi-model system
-- ✅ Dual-mode operation (assisted and autonomous)
-- ✅ Comprehensive paper trading environment
-- ✅ Integration with major exchanges (CEX and DEX)
-- ✅ Advanced risk management system
-- ✅ Secure credential management
-- ✅ Solana Sniper module
-- ✅ Decentralized execution architecture
-- ✅ Privacy-enhanced transaction routing
+### 1. Start the Platform
 
-### Under Development
+```bash
+python start_sniper.py
+```
 
-- 🔄 Mobile companion app
-- 🔄 Advanced analytics dashboard
-- 🔄 Expanded cross-chain support
-- 🔄 Zero-knowledge proof transaction privacy
-- 🔄 DAO governance integration
+### 2. API Endpoints
 
-## Contributing
+- `POST /bot/start` – Start Solana sniper with config
+- `POST /bot/stop` – Stop the bot
+- `GET /bot/status` – Get status/metrics
+- `GET /bot/positions` – Active positions
+- `GET /trades/recent` – Trade history
+- `GET /metrics/performance` – Performance analytics
+- `WS /ws` – Real-time updates
 
-Grekko welcomes contributions from the community. To contribute:
+See [`src/api/main.py`](src/api/main.py:1) for implementation.
 
-1. Fork the repository
-2. Create a feature branch
-3. Implement your changes
-4. Write tests for your features
-5. Submit a pull request
+### 3. TradingView Webhook
 
-Please review our contribution guidelines in the CONTRIBUTING.md file before submitting.
+Grekko supports secure, real-time trade execution via TradingView alerts.
 
-## Documentation
+- **Endpoint:** `POST /api/v1/tradingview/hook`
+- **Security:** Requires secret token (`TRADINGVIEW_WEBHOOK_SECRET`)
 
-- [Paper Trading Guide](docs/PAPER_TRADING.md)
-- [Agent Orchestration](docs/AGENT_ORCHESTRATION.md)
-- [Decentralized Execution](docs/DECENTRALIZED_EXECUTION.md)
-- [LLM Ensemble Design](docs/LLM_ENSEMBLE_DESIGN.md)
-- [Solana Sniper Guide](SOLANA_SNIPER_README.md)
-- [Architecture Overview](ARCHITECTURE.md)
-- [Scaling Strategy](SCALING_STRATEGY.md)
-- [Future Roadmap](FUTURE_ROADMAP.md)
+**Example Alert JSON:**
+```json
+{
+  "symbol": "BTCUSDT",
+  "price": 67000.5,
+  "side": "buy",
+  "strategy_id": "my-strategy-1",
+  "size": 0.01,
+  "secret": "YOUR_WEBHOOK_SECRET",
+  "leverage": 2,
+  "exchange": "binance"
+}
+```
 
-## License
+See [`src/api/tradingview_webhook.py`](src/api/tradingview_webhook.py:1) for details.
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+---
 
-## Disclaimer
+## 🧪 Testing
 
-Cryptocurrency trading involves significant risk. While Grekko provides sophisticated tools for trading, the developers are not responsible for any financial losses incurred through the use of this software. Always exercise caution, start with paper trading, and never invest funds you cannot afford to lose. The Solana Sniper module involves particularly high-risk trading activities and should only be used with careful consideration of potential losses.
+Grekko includes comprehensive tests:
+
+- **Unit tests:** [`tests/unit/`](tests/unit/)
+- **Integration tests:** [`tests/integration/`](tests/integration/)
+- **Simulation/backtesting:** [`tests/simulation/`](tests/simulation/)
+- **Temp/experimental:** [`tests/temp_test/`](tests/temp_test/)
+
+**Run all tests:**
+```bash
+pytest
+```
+
+**Run integration test:**
+```bash
+python test_sniper_integration.py
+```
+
+---
+
+## 🐳 Docker & Production
+
+- See [`docker/Dockerfile`](docker/Dockerfile:1) and [`docker/docker-compose.yml`](docker/docker-compose.yml:1)
+- Production-ready: sets up system deps, Python, requirements, app code, and runs `src/main.py`
+- Mount credentials and config as needed
+
+---
+
+## 🔄 CI/CD
+
+- Automated testing and linting via [`.github/workflows/ci.yml`](.github/workflows/ci.yml:1)
+- Pre-commit hooks: [`pre-commit-config.yaml`](pre-commit-config.yaml:1)
+- Black, isort, mypy, pytest, safety checks
+
+---
+
+## 🗺️ Roadmap
+
+See [`FUTURE_ROADMAP.md`](FUTURE_ROADMAP.md:1) for full details.
+
+- Multi-DEX and cross-chain expansion
+- ML-powered safety scoring
+- Advanced analytics and backtesting
+- Strategy marketplace and social trading
+- DeFi yield optimization and flash loan strategies
+- Performance, infrastructure, and AI/ML enhancements
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) (if available) or open an issue/PR.
+
+---
+
+## 📄 License
+
+MIT License. See [`LICENSE`](LICENSE) for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- Solana, Ethereum, and open-source DeFi communities
+- Contributors and testers
+- [Your organization/team]
+
+---
+
+**Grekko** – Democratizing advanced crypto trading with AI, speed, and transparency.
