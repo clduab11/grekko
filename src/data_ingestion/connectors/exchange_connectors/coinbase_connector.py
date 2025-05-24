@@ -972,3 +972,22 @@ class CoinbaseConnector:
             self.logger.error(f"Unexpected error: {e}")
 
     async def create_order(self, symbol, order_type, side,
+        amount, price=None):
+        """Create an order on the exchange"""
+        try:
+            if order_type == "limit" and price is None:
+                raise ValueError("Limit orders require a price")
+                
+            if order_type == "market":
+                order = await self.exchange.create_market_order(symbol, side, amount)
+            else:
+                order = await self.exchange.create_limit_order(symbol, side, amount, price)
+                
+            return order
+        except ccxt.NetworkError as e:
+            self.logger.error(f"Network error: {e}")
+        except ccxt.ExchangeError as e:
+            self.logger.error(f"Exchange error: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
+        return None

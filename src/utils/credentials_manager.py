@@ -277,8 +277,9 @@ class CredentialsManager:
                 password = getpass.getpass("Create master password for credential vault: ")
                 
                 # Validate password strength
-                if len(password) < 8:
-                    print("Password must be at least 8 characters long. Please try again.")
+                validation = self._validate_password_strength(password)
+                if not validation['valid']:
+                    print(f"Password requirement: {validation['message']}")
                     continue
                     
                 confirm = getpass.getpass("Confirm master password: ")
@@ -288,7 +289,16 @@ class CredentialsManager:
                 else:
                     print("Passwords do not match. Please try again.")
         else:
-            return getpass.getpass("Enter master password for credential vault: ")
+            # Add retry limit for security
+            max_attempts = 3
+            for attempt in range(max_attempts):
+                password = getpass.getpass(f"Enter master password for credential vault (attempt {attempt + 1}/{max_attempts}): ")
+                if self.verify_master_password(password):
+                    return password
+                elif attempt < max_attempts - 1:
+                    print("Incorrect password. Please try again.")
+            
+            raise ValueError("Maximum password attempts exceeded")
             
     def _get_configured_exchanges(self) -> list:
         """
@@ -331,3 +341,45 @@ class CredentialsManager:
             bool: True if vault exists, False otherwise
         """
         return os.path.exists(self.vault_path)
+    
+    def _validate_password_strength(self, password: str) -> Dict[str, Any]:
+        """
+        Validate password strength requirements.
+        
+        Args:
+            password: Password to validate
+            
+        Returns:
+            Validation result with 'valid' and 'message' keys
+        """
+        if len(password) < 12:
+            return {
+                'valid': False,
+                'message': 'Password must be at least 12 characters long'
+            }
+        
+        if not any(c.isupper() for c in password):
+            return {
+                'valid': False,
+                'message': 'Password must contain at least one uppercase letter'
+            }
+        
+        if not any(c.islower() for c in password):
+            return {
+                'valid': False,
+                'message': 'Password must contain at least one lowercase letter'
+            }
+        
+        if not any(c.isdigit() for c in password):
+            return {
+                'valid': False,
+                'message': 'Password must contain at least one number'
+            }
+        
+        if not any(c in '!@#$%^&*()_+-=[]{}|;:,.<>?' for c in password):
+            return {
+                'valid': False,
+                'message': 'Password must contain at least one special character'
+            }
+        
+        return {'valid': True, 'message': 'Password meets all requirements'}

@@ -15,7 +15,9 @@ RUN mkdir -p /root/.grekko
 
 # Copy requirements
 COPY requirements.txt .
+COPY tests/test_requirements.txt ./tests/test_requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r tests/test_requirements.txt
 
 # Copy application code
 COPY . .

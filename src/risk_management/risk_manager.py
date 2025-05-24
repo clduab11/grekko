@@ -1,6 +1,8 @@
 import logging
 import numpy as np
 import time
+from typing import Dict, Any, Optional
+from datetime import datetime
 
 class RiskManager:
     """
@@ -92,6 +94,82 @@ class RiskManager:
             time.sleep(interval)
         
         return results
+
+    async def check_order(self, 
+                        symbol: str, 
+                        side: str, 
+                        amount: float, 
+                        price: float) -> Dict[str, Any]:
+        """
+        Check if an order meets risk management criteria.
+        
+        Args:
+            symbol: Trading pair symbol
+            side: 'buy' or 'sell'
+            amount: Order amount
+            price: Order price
+            
+        Returns:
+            Dict containing approval status and reason if rejected
+        """
+        try:
+            # Calculate order value
+            order_value = amount * price
+            
+            # Check against capital limits
+            max_allowed = self.capital * self.max_trade_size_pct
+            
+            if order_value > max_allowed:
+                return {
+                    'approved': False,
+                    'reason': f'Order value ${order_value:.2f} exceeds maximum allowed ${max_allowed:.2f}',
+                    'max_allowed': max_allowed,
+                    'order_value': order_value
+                }
+            
+            # Check if order would exceed total exposure limits
+            # This would normally check existing positions
+            # For now, simplified check
+            
+            return {
+                'approved': True,
+                'reason': None,
+                'order_value': order_value,
+                'risk_score': self._calculate_risk_score(symbol, side, amount, price)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error in risk check: {str(e)}")
+            return {
+                'approved': False,
+                'reason': f'Risk check error: {str(e)}'
+            }
+    
+    def _calculate_risk_score(self, symbol: str, side: str, amount: float, price: float) -> float:
+        """
+        Calculate a risk score for the order.
+        
+        Args:
+            symbol: Trading pair
+            side: Buy or sell
+            amount: Order amount
+            price: Order price
+            
+        Returns:
+            Risk score from 0 (low risk) to 10 (high risk)
+        """
+        # Simple risk scoring based on position size relative to capital
+        position_value = amount * price
+        position_pct = position_value / self.capital
+        
+        # Base risk score from position size
+        risk_score = min(10, position_pct * 100)
+        
+        # Adjust for volatility (would use actual volatility data in production)
+        if 'BTC' in symbol:
+            risk_score *= 1.2  # Higher risk for volatile assets
+        
+        return min(10, risk_score)
 
     def calculate_var(self, returns, confidence_level=0.95):
         """

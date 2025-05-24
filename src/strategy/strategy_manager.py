@@ -3,9 +3,9 @@ from .strategies.arbitrage_strategy import ArbitrageStrategy
 from .strategies.mean_reversion_strategy import MeanReversionStrategy
 from .strategies.momentum_strategy import MomentumStrategy
 from .strategies.sentiment_strategy import SentimentStrategy
-from ai_adaptation.ml_models.model_trainer import ModelTrainer
-from utils.credentials_manager import CredentialsManager
-from utils.logger import get_logger
+from ..ai_adaptation.ml_models.model_trainer import ModelTrainer
+from ..utils.credentials_manager import CredentialsManager
+from ..utils.logger import get_logger
 
 class StrategyManager:
     def __init__(self, exchange='binance'):

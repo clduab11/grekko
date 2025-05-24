@@ -98,12 +98,25 @@ def ensure_credentials():
         return False
 
 async def start_api_server():
-    """Start the API server for mobile app integration"""
-    # This would be implemented with FastAPI
-    # For now, just log that it would start
-    logging.getLogger(__name__).info("API server would start here (placeholder)")
-    while True:
-        await asyncio.sleep(60)  # Keep task alive
+    """Start the API server for bot control and monitoring"""
+    # Import and run the FastAPI server
+    try:
+        from .api.main import app
+        import uvicorn
+        
+        config = uvicorn.Config(
+            app=app,
+            host="0.0.0.0",
+            port=8000,
+            log_level="info"
+        )
+        server = uvicorn.Server(config)
+        await server.serve()
+    except ImportError:
+        # Fallback if API not available
+        logging.getLogger(__name__).info("API server not available, running in standalone mode")
+        while True:
+            await asyncio.sleep(60)  # Keep task alive
 
 async def main():
     """

@@ -8,7 +8,8 @@ and market analysis.
 import logging
 import asyncio
 import json
-from typing import Dict, List, Any, Optional, Tuple
+import time
+from typing import Dict, List, Any, Optional, Tuple, Union
 from enum import Enum
 from datetime import datetime
 
@@ -207,7 +208,7 @@ class LLMEnsemble:
         # Prepare analysis context
         context = self._prepare_context(market_data, current_positions, market_state)
         
-        # Run specialized models in parallel
+        # Run specialized models in parallel with error handling
         tasks = [
             self._run_technical_analysis(context),
             self._run_regime_analysis(context),
@@ -215,8 +216,14 @@ class LLMEnsemble:
             self._run_risk_analysis(context)
         ]
         
-        model_results = await asyncio.gather(*tasks)
-        technical_analysis, regime_analysis, sentiment_analysis, risk_analysis = model_results
+        # Use return_exceptions to handle individual model failures
+        model_results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Process results with fallback handling
+        technical_analysis = self._handle_model_result(model_results[0], ModelType.TECHNICAL)
+        regime_analysis = self._handle_model_result(model_results[1], ModelType.REGIME)
+        sentiment_analysis = self._handle_model_result(model_results[2], ModelType.SENTIMENT)
+        risk_analysis = self._handle_model_result(model_results[3], ModelType.RISK)
         
         # Combine model outputs with meta-model
         ensemble_result = await self._orchestrate_ensemble(
@@ -733,3 +740,123 @@ class LLMEnsemble:
             Dict[str, Any]: Performance metrics
         """
         return dict(self.performance_metrics)
+    
+    def _handle_model_result(self, result: Union[Dict[str, Any], Exception], model_type: ModelType) -> Dict[str, Any]:
+        """
+        Handle model result with fallback for failures.
+        
+        Args:
+            result: Model result or exception
+            model_type: Type of model
+            
+        Returns:
+            Processed result with fallback if needed
+        """
+        if isinstance(result, Exception):
+            self.logger.error(f"{model_type.value} model failed: {str(result)}")
+            
+            # Return fallback result
+            return {
+                'model_type': model_type.value,
+                'status': 'fallback',
+                'error': str(result),
+                'timestamp': datetime.now().isoformat(),
+                'fallback_data': self._get_fallback_data(model_type)
+            }
+        
+        return result
+    
+    def _get_fallback_data(self, model_type: ModelType) -> Dict[str, Any]:
+        """
+        Get fallback data for a failed model.
+        
+        Args:
+            model_type: Type of model that failed
+            
+        Returns:
+            Fallback data
+        """
+        fallbacks = {
+            ModelType.TECHNICAL: {
+                'trend': 'neutral',
+                'signals': [],
+                'confidence': 0.3,
+                'message': 'Using neutral technical stance due to model failure'
+            },
+            ModelType.REGIME: {
+                'regime': 'unknown',
+                'confidence': 0.2,
+                'volatility': 'medium',
+                'message': 'Cannot determine market regime, assuming neutral'
+            },
+            ModelType.SENTIMENT: {
+                'sentiment': 'neutral',
+                'score': 0.5,
+                'confidence': 0.2,
+                'message': 'Sentiment analysis unavailable, assuming neutral'
+            },
+            ModelType.RISK: {
+                'risk_level': 'medium',
+                'risk_score': 5,
+                'max_position_size': 0.01,
+                'message': 'Using conservative risk parameters due to model failure'
+            }
+        }
+        
+        return fallbacks.get(model_type, {})
+    
+    async def health_check(self) -> Dict[str, Any]:
+        """
+        Check health of all models in the ensemble.
+        
+        Returns:
+            Health status of each model
+        """
+        health_status = {
+            'timestamp': datetime.now().isoformat(),
+            'models': {}
+        }
+        
+        # Test each model with a simple prompt
+        test_prompt = "Return OK if operational"
+        
+        models = [
+            (ModelType.META, self.meta_model),
+            (ModelType.TECHNICAL, self.technical_model),
+            (ModelType.REGIME, self.regime_model),
+            (ModelType.SENTIMENT, self.sentiment_model),
+            (ModelType.RISK, self.risk_model)
+        ]
+        
+        for model_type, model in models:
+            try:
+                start_time = time.time()
+                response = await model.generate(test_prompt)
+                latency_ms = (time.time() - start_time) * 1000
+                
+                health_status['models'][model_type.value] = {
+                    'status': 'healthy',
+                    'latency_ms': latency_ms,
+                    'model_name': model.model_name
+                }
+            except Exception as e:
+                health_status['models'][model_type.value] = {
+                    'status': 'unhealthy',
+                    'error': str(e),
+                    'model_name': model.model_name
+                }
+        
+        # Calculate overall health
+        healthy_count = sum(
+            1 for m in health_status['models'].values() 
+            if m['status'] == 'healthy'
+        )
+        total_count = len(health_status['models'])
+        
+        health_status['overall_health'] = {
+            'healthy_models': healthy_count,
+            'total_models': total_count,
+            'health_percentage': (healthy_count / total_count) * 100
+        }
+        
+        return health_status

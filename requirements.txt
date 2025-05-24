@@ -1,32 +1,31 @@
 # Core Dependencies
-python==3.11
 pyyaml==6.0
 pandas==2.0.0
 numpy==1.24.0
 aiohttp==3.8.4
-asyncio==3.4.3
+# asyncio is a standard library module, remove from requirements.
 
 # AI and Language Models
-openai==1.0.0
-langchain==0.0.267
+openai==1.30.0  # Updated for better Pydantic v2 compatibility
+langchain==0.1.0  # Updated for Pydantic v2 support
 transformers==4.30.2
-tensorflow==2.12.0
+# tensorflow==2.12.0  # No py3.11 arm wheel for macOS. Consider platform-specific install or optional extra.
 scikit-learn==1.2.2
-keras==2.12.0
+# keras==2.12.0  # Tied to tensorflow. Consider platform-specific install or optional extra.
 gym==0.26.0  # For reinforcement learning
 
-# Cryptography 
+# Cryptography
 cryptography==41.0.0
 pynacl==1.5.0
 
 # Blockchain
 web3==6.0.0
-solders==0.14.0  # For Solana
+solana==0.32.0  # Solana Python SDK
+anchorpy==0.19.0  # For Anchor programs
 eth-account==0.8.0
 
 # Exchange APIs
-ccxt==3.0.0
-ccxt.pro==0.10.0  # For websocket support
+ccxt>=2.0.0,<4.0.0
 
 # Data Analysis
 pandas-ta==0.3.14b
@@ -36,17 +35,27 @@ tradingview-ta==3.3.0  # TradingView integration
 
 # Database
 sqlalchemy==2.0.0
+alembic==1.13.0
+psycopg2-binary==2.9.9  # PostgreSQL adapter
 
 # API and Web
-fastapi==0.95.2
+fastapi==0.109.0  # Updated to support Pydantic v2
+starlette==0.35.1  # Required by fastapi 0.109.0
 uvicorn==0.22.0
-websockets==11.0.3
+websockets==10.4
+python-multipart==0.0.6  # For form data
+httpx>=0.23.0,<0.24.0  # For async HTTP client
 
 # Testing
 pytest==7.3.1
 pytest-asyncio==0.21.0
 
 # Utilities
-python-dotenv==1.0.0
 tqdm==4.65.0
-requests==2.30.0
+requests==2.31.0
+pydantic[dotenv]>=2.7.0,<2.10.0
+python-dotenv>=1.0.1 # Using this version, removed older duplicate
+watchdog>=3.0.0
+pydantic-settings>=2.1.0
+safety==3.5.1  # For security vulnerability scanning
+realtime~=1.0  # For real-time communication features, downgraded to attempt websockets compatibility

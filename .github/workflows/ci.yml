@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      docker:
+        image: docker:20.10.7
+        options: --privileged
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r tests/test_requirements.txt
+          pip install flake8 black isort pytest pytest-cov
+
+      - name: Lint with flake8
+        run: flake8 src/ tests/
+
+      - name: Check code style with black
+        run: black --check src/ tests/
+
+      - name: Check import order with isort
+        run: isort --check-only src/ tests/
+
+      - name: Run tests with coverage
+        run: pytest --cov=src --cov-report=xml --cov-fail-under=80
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: true
