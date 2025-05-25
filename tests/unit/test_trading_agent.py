@@ -541,13 +541,21 @@ class TestTradingAgent:
     def test_is_critical_error(self, trading_agent):
         """Test critical error detection"""
         # Test critical errors
-        assert trading_agent._is_critical_error(Exception("Authentication failed")) is True
-        assert trading_agent._is_critical_error(Exception("Insufficient funds")) is True
+        assert trading_agent._is_critical_error(
+            Exception("Authentication failed")
+        ) is True
+        assert trading_agent._is_critical_error(
+            Exception("Insufficient funds")
+        ) is True
         assert trading_agent._is_critical_error(Exception("Connection error")) is True
 
         # Test non-critical errors
-        assert trading_agent._is_critical_error(Exception("Some minor error")) is False
-        assert trading_agent._is_critical_error(Exception("Operation timed out")) is False
+        assert trading_agent._is_critical_error(
+            Exception("Some minor error")
+        ) is False
+        assert trading_agent._is_critical_error(
+            Exception("Operation timed out")
+        ) is False
 
     def test_report_status(self, trading_agent):
         """Test generating a status report"""
