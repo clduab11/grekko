@@ -412,7 +412,9 @@ class TestTradingAgent:
             "price": 43250.0,
             "status": "executed"
         }
-        trading_agent.execution_manager.create_order = AsyncMock(return_value=mock_order)
+        trading_agent.execution_manager.create_order = AsyncMock(
+            return_value=mock_order
+        )
 
         # Create test decision
         decision = {
@@ -519,7 +521,8 @@ class TestTradingAgent:
     def test_should_emergency_stop_exceeds_drawdown(self, trading_agent):
         """Test emergency stop when drawdown exceeds limit"""
         # Mock portfolio value below drawdown limit
-        trading_agent._get_portfolio_value = MagicMock(return_value=85000.0)  # 15% drawdown
+        trading_agent._get_portfolio_value = MagicMock(
+            return_value=85000.0)  # 15% drawdown
 
         # Call the method
         result = trading_agent._should_emergency_stop()
@@ -530,7 +533,8 @@ class TestTradingAgent:
     def test_should_emergency_stop_no_drawdown(self, trading_agent):
         """Test emergency stop with no drawdown"""
         # Mock portfolio value above drawdown limit
-        trading_agent._get_portfolio_value = MagicMock(return_value=95000.0)  # 5% drawdown
+        trading_agent._get_portfolio_value = MagicMock(
+            return_value=95000.0)  # 5% drawdown
 
         # Call the method
         result = trading_agent._should_emergency_stop()
@@ -547,7 +551,9 @@ class TestTradingAgent:
         assert trading_agent._is_critical_error(
             Exception("Insufficient funds")
         ) is True
-        assert trading_agent._is_critical_error(Exception("Connection error")) is True
+        assert trading_agent._is_critical_error(
+            Exception("Connection error")
+        ) is True
 
         # Test non-critical errors
         assert trading_agent._is_critical_error(
