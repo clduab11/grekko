@@ -394,17 +394,17 @@ class TestTradeEvaluator:
     def test_analyze_market_factors(self, trade_evaluator, market_data):
         """Test market factors analysis"""
         factors = trade_evaluator._analyze_market_factors(market_data)
-        
+
         # Verify market factors analysis
         assert "volume_analysis" in factors
         assert factors["volume_analysis"]["value"] == 50000
         assert factors["volume_analysis"]["above_average"] is True
-        
+
         assert "spread_analysis" in factors
         assert factors["spread_analysis"]["absolute"] == 0.4
         assert factors["spread_analysis"]["percentage"] == 0.004
         assert factors["spread_analysis"]["is_high"] is True
-        
+
         assert "liquidity_analysis" in factors
         assert factors["liquidity_analysis"]["value"] == 5000000
         assert factors["liquidity_analysis"]["is_low"] is False
