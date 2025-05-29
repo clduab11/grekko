@@ -1,0 +1,616 @@
+# ArgoCD GitOps Configuration for Trading System
+# Automated deployment and synchronization with Git repository
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    name: argocd
+    istio-injection: enabled
+---
+# ArgoCD Installation
+apiVersion: argoproj.io/v1alpha1
+kind: ArgoCD
+metadata:
+  name: argocd
+  namespace: argocd
+spec:
+  server:
+    autoscale:
+      enabled: false
+    grpc:
+      ingress:
+        enabled: false
+    ingress:
+      enabled: true
+      ingressClassName: istio
+      annotations:
+        kubernetes.io/ingress.class: istio
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      hosts:
+      - argocd.grekko.trading
+      tls:
+      - secretName: argocd-server-tls
+        hosts:
+        - argocd.grekko.trading
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 125m
+        memory: 128Mi
+    route:
+      enabled: false
+    service:
+      type: ClusterIP
+  grafana:
+    enabled: false
+    ingress:
+      enabled: false
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 250m
+        memory: 128Mi
+    route:
+      enabled: false
+  monitoring:
+    enabled: true
+  notifications:
+    enabled: true
+  prometheus:
+    enabled: false
+    ingress:
+      enabled: false
+    route:
+      enabled: false
+  initialSSHKnownHosts:
+    excludedefaulthosts: false
+    keys: |
+      bitbucket.org ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAubiN81eDcafrgMeLzaFPsw2kNvEcqTKl/VqLat/MaB33pZy0y3rJZtnqwR2qOOvbwKZYKiEO1O6VqNEBxKvJJelCq0dTXWT5pbO2gDXC6h6QDXCaHo6pOHGPUy+YBaGQRGuSusMEASYiWunYN0vCAI8QaXnWMXNMdFP3jHAJH0eDsoiGnLPBlBp4TNm6rYI74nMzgz3B9IikW4WVK+dc8KZJZWYjAuORU3jc1c/NPskD2ASinf8v3xnfXeukU0sJ5N6m5E8VLjObPEO+mN2t/FZTMZLiFqPWc/ALSqnMnnhwrNi2rbfg/rd/IpL8Le3pSBne8+seeFVBoGqzHM9yXw==
+      github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==
+      gitlab.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCsj2bNKTBSpIYDEGk9KxsGh3mySTRgMtXL583qmBpzeQ+jqCMRgBqB98u3z++J1sKlXHWfM9dyhSevkMwSbhoR8XIq/U0tCNyokEi/ueaBMCvbcTHhO7k0VhjaxrXhyJyizPnFRyjr7WoVdKZdZraLPVfiQnYz7wNOhzKuUBq+ztPdKHd+WD1yMxw2XWHmHHcwlHpLsoj2JNoKOVQNa7fh3DB1cLyaRejPvLOxiJFUlr/7d8UvYiLFhXpqB3TULWIJf69fCWaLd1c+2RlkXyFHqiHZxAJdeWxIS9wvkiEQHKXy5sbLiJLjfqx1+5CKGDF+Yd1hrglTBRDADpx/
+  oidcConfig: |
+    name: OIDC
+    issuer: https://auth.grekko.trading
+    clientId: argocd
+    clientSecret: $oidc.clientSecret
+    requestedScopes: ["openid", "profile", "email", "groups"]
+    requestedIDTokenClaims: {"groups": {"essential": true}}
+  policy: |
+    p, role:admin, applications, *, */*, allow
+    p, role:admin, clusters, *, *, allow
+    p, role:admin, repositories, *, *, allow
+    p, role:readonly, applications, get, */*, allow
+    p, role:readonly, clusters, get, *, allow
+    p, role:readonly, repositories, get, *, allow
+    g, argocd-admins, role:admin
+    g, argocd-readonly, role:readonly
+  rbacConfig: |
+    policy.default: role:readonly
+    policy.csv: |
+      p, role:admin, applications, *, */*, allow
+      p, role:admin, clusters, *, *, allow
+      p, role:admin, repositories, *, *, allow
+      p, role:readonly, applications, get, */*, allow
+      p, role:readonly, clusters, get, *, allow
+      p, role:readonly, repositories, get, *, allow
+      g, argocd-admins, role:admin
+      g, argocd-readonly, role:readonly
+  redis:
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 250m
+        memory: 128Mi
+  repo:
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1024Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+  resourceExclusions: |
+    - apiGroups:
+      - tekton.dev
+      clusters:
+      - '*'
+      kinds:
+      - TaskRun
+      - PipelineRun
+  dex:
+    openShiftOAuth: false
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 250m
+        memory: 128Mi
+  ha:
+    enabled: false
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 250m
+        memory: 128Mi
+  tls:
+    ca: {}
+  controller:
+    processors: {}
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 2048Mi
+      requests:
+        cpu: 250m
+        memory: 1024Mi
+    sharding: {}
+---
+# Trading System Application
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: trading-system
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/grekko-trading/grekko-1
+    targetRevision: HEAD
+    path: k8s
+    directory:
+      recurse: true
+      exclude: |
+        cicd/**
+        secrets/**
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: trading-prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+    - CreateNamespace=true
+    - PrunePropagationPolicy=foreground
+    - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10
+---
+# Infrastructure Application
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: trading-infrastructure
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/grekko-trading/grekko-1
+    targetRevision: HEAD
+    path: k8s
+    directory:
+      recurse: true
+      include: |
+        cluster/**
+        databases/**
+        message-bus/**
+        service-mesh/**
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+    - CreateNamespace=true
+    - PrunePropagationPolicy=foreground
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  revisionHistoryLimit: 5
+---
+# Monitoring Application
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: trading-monitoring
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/grekko-trading/grekko-1
+    targetRevision: HEAD
+    path: k8s/monitoring
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+    - CreateNamespace=true
+    - PrunePropagationPolicy=foreground
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10
+---
+# ArgoCD Notifications Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  service.slack: |
+    token: $slack-token
+    username: ArgoCD
+    channel: deployments
+    iconEmoji: ":rocket:"
+  service.email: |
+    host: smtp.gmail.com
+    port: 587
+    from: argocd@grekko.trading
+    username: $email-username
+    password: $email-password
+  service.webhook.github: |
+    url: https://api.github.com/repos/grekko-trading/grekko-1/statuses/{{.app.status.sync.revision}}
+    headers:
+    - name: Authorization
+      value: token $github-token
+  template.app-deployed: |
+    email:
+      subject: Application {{.app.metadata.name}} is now running new version.
+    message: |
+      {{if eq .serviceType "slack"}}:white_check_mark:{{end}} Application {{.app.metadata.name}} is now running new version of deployments manifests.
+    slack:
+      attachments: |
+        [{
+          "title": "{{ .app.metadata.name}}",
+          "title_link":"{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+          "color": "#18be52",
+          "fields": [
+          {
+            "title": "Sync Status",
+            "value": "{{.app.status.sync.status}}",
+            "short": true
+          },
+          {
+            "title": "Repository",
+            "value": "{{.app.spec.source.repoURL}}",
+            "short": true
+          },
+          {
+            "title": "Revision",
+            "value": "{{.app.status.sync.revision}}",
+            "short": true
+          }
+          {{range $index, $c := .app.status.conditions}}
+          {{if not $index}},{{end}}
+          {{if $index}},{{end}}
+          {
+            "title": "{{$c.type}}",
+            "value": "{{$c.message}}",
+            "short": true
+          }
+          {{end}}
+          ]
+        }]
+  template.app-health-degraded: |
+    email:
+      subject: Application {{.app.metadata.name}} has degraded.
+    message: |
+      {{if eq .serviceType "slack"}}:exclamation:{{end}} Application {{.app.metadata.name}} has degraded.
+      Application details: {{.context.argocdUrl}}/applications/{{.app.metadata.name}}.
+    slack:
+      attachments: |
+        [{
+          "title": "{{ .app.metadata.name}}",
+          "title_link": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+          "color": "#f4c430",
+          "fields": [
+          {
+            "title": "Health Status",
+            "value": "{{.app.status.health.status}}",
+            "short": true
+          },
+          {
+            "title": "Repository",
+            "value": "{{.app.spec.source.repoURL}}",
+            "short": true
+          }
+          {{range $index, $c := .app.status.conditions}}
+          {{if not $index}},{{end}}
+          {{if $index}},{{end}}
+          {
+            "title": "{{$c.type}}",
+            "value": "{{$c.message}}",
+            "short": true
+          }
+          {{end}}
+          ]
+        }]
+  template.app-sync-failed: |
+    email:
+      subject: Failed to sync application {{.app.metadata.name}}.
+    message: |
+      {{if eq .serviceType "slack"}}:exclamation:{{end}} The sync operation of application {{.app.metadata.name}} has failed at {{.app.status.operationState.finishedAt}} with the following error: {{.app.status.operationState.message}}
+      Sync operation details are available at: {{.context.argocdUrl}}/applications/{{.app.metadata.name}}?operation=true .
+    slack:
+      attachments: |
+        [{
+          "title": "{{ .app.metadata.name}}",
+          "title_link":"{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+          "color": "#E96D76",
+          "fields": [
+          {
+            "title": "Sync Status",
+            "value": "{{.app.status.sync.status}}",
+            "short": true
+          },
+          {
+            "title": "Repository",
+            "value": "{{.app.spec.source.repoURL}}",
+            "short": true
+          }
+          {{range $index, $c := .app.status.conditions}}
+          {{if not $index}},{{end}}
+          {{if $index}},{{end}}
+          {
+            "title": "{{$c.type}}",
+            "value": "{{$c.message}}",
+            "short": true
+          }
+          {{end}}
+          ]
+        }]
+  trigger.on-deployed: |
+    - description: Application is synced and healthy. Triggered once per commit.
+      oncePer: app.status.sync.revision
+      send:
+      - app-deployed
+      when: app.status.operationState.phase in ['Succeeded'] and app.status.health.status == 'Healthy'
+  trigger.on-health-degraded: |
+    - description: Application has degraded
+      send:
+      - app-health-degraded
+      when: app.status.health.status == 'Degraded'
+  trigger.on-sync-failed: |
+    - description: Application syncing has failed
+      send:
+      - app-sync-failed
+      when: app.status.operationState.phase in ['Error', 'Failed']
+---
+# ArgoCD Notifications Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-notifications-secret
+  namespace: argocd
+type: Opaque
+stringData:
+  slack-token: ""  # To be filled by external secret management
+  email-username: ""  # To be filled by external secret management
+  email-password: ""  # To be filled by external secret management
+  github-token: ""  # To be filled by external secret management
+---
+# ArgoCD Repository Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: trading-repo
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+type: Opaque
+stringData:
+  type: git
+  url: https://github.com/grekko-trading/grekko-1
+  password: ""  # To be filled by external secret management
+  username: ""  # To be filled by external secret management
+---
+# ArgoCD Image Updater Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-image-updater-config
+  namespace: argocd
+data:
+  registries.conf: |
+    registries:
+    - name: GitHub Container Registry
+      prefix: ghcr.io
+      api_url: https://ghcr.io
+      credentials: secret:argocd/github-registry-creds#creds
+      default: true
+  log.level: info
+  kube.events: true
+---
+# ArgoCD Image Updater Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-image-updater
+  namespace: argocd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-image-updater
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: argocd-image-updater
+    spec:
+      serviceAccountName: argocd-image-updater
+      containers:
+      - name: argocd-image-updater
+        image: argoprojlabs/argocd-image-updater:v0.12.0
+        command:
+        - /usr/local/bin/argocd-image-updater
+        - run
+        env:
+        - name: APPLICATIONS_API
+          value: argocd
+        - name: ARGOCD_GRPC_WEB
+          value: "true"
+        - name: ARGOCD_SERVER
+          value: argocd-server.argocd.svc.cluster.local:443
+        - name: ARGOCD_INSECURE
+          value: "false"
+        - name: ARGOCD_PLAINTEXT
+          value: "false"
+        - name: ARGOCD_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: argocd-image-updater-secret
+              key: argocd.token
+        - name: IMAGE_UPDATER_KUBE_EVENTS
+          value: "true"
+        - name: IMAGE_UPDATER_LOG_LEVEL
+          value: info
+        ports:
+        - containerPort: 8080
+          name: metrics
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 30
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+        - name: ssh-known-hosts
+          mountPath: /app/ssh
+        - name: ssh-config
+          mountPath: /app/ssh-config
+      volumes:
+      - name: config
+        configMap:
+          name: argocd-image-updater-config
+      - name: ssh-known-hosts
+        configMap:
+          name: argocd-ssh-known-hosts-cm
+      - name: ssh-config
+        configMap:
+          name: argocd-image-updater-ssh-config
+---
+# ArgoCD Image Updater Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argocd-image-updater
+  namespace: argocd
+---
+# ArgoCD Image Updater ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argocd-image-updater
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - argoproj.io
+  resources:
+  - applications
+  verbs:
+  - get
+  - list
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+---
+# ArgoCD Image Updater ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-image-updater
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: argocd-image-updater
+subjects:
+- kind: ServiceAccount
+  name: argocd-image-updater
+  namespace: argocd
+---
+# ArgoCD Image Updater Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-image-updater-secret
+  namespace: argocd
+type: Opaque
+stringData:
+  argocd.token: ""  # To be filled by external secret management
+---
+# GitHub Registry Credentials Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: github-registry-creds
+  namespace: argocd
+type: Opaque
+stringData:
+  creds: ""  # To be filled by external secret management (username:token format)

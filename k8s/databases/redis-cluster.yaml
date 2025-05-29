@@ -1,0 +1,570 @@
+# Redis Cluster Configuration for Trading System
+# High-availability Redis cluster for caching and session management
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: trading-prod
+data:
+  redis.conf: |
+    # Network
+    bind 0.0.0.0
+    port 6379
+    protected-mode no
+    
+    # General
+    daemonize no
+    supervised no
+    pidfile /var/run/redis_6379.pid
+    loglevel notice
+    logfile ""
+    databases 16
+    
+    # Snapshotting
+    save 900 1
+    save 300 10
+    save 60 10000
+    stop-writes-on-bgsave-error yes
+    rdbcompression yes
+    rdbchecksum yes
+    dbfilename dump.rdb
+    dir /data
+    
+    # Replication
+    replica-serve-stale-data yes
+    replica-read-only yes
+    repl-diskless-sync no
+    repl-diskless-sync-delay 5
+    repl-ping-replica-period 10
+    repl-timeout 60
+    repl-disable-tcp-nodelay no
+    repl-backlog-size 1mb
+    repl-backlog-ttl 3600
+    
+    # Security
+    requirepass REDIS_PASSWORD_PLACEHOLDER
+    
+    # Memory Management
+    maxmemory 512mb
+    maxmemory-policy allkeys-lru
+    
+    # Append Only File
+    appendonly yes
+    appendfilename "appendonly.aof"
+    appendfsync everysec
+    no-appendfsync-on-rewrite no
+    auto-aof-rewrite-percentage 100
+    auto-aof-rewrite-min-size 64mb
+    aof-load-truncated yes
+    
+    # Cluster
+    cluster-enabled yes
+    cluster-config-file nodes-6379.conf
+    cluster-node-timeout 15000
+    cluster-require-full-coverage no
+    
+    # Slow Log
+    slowlog-log-slower-than 10000
+    slowlog-max-len 128
+    
+    # Latency Monitor
+    latency-monitor-threshold 100
+    
+    # Event Notification
+    notify-keyspace-events Ex
+    
+    # Advanced Config
+    hash-max-ziplist-entries 512
+    hash-max-ziplist-value 64
+    list-max-ziplist-size -2
+    list-compress-depth 0
+    set-max-intset-entries 512
+    zset-max-ziplist-entries 128
+    zset-max-ziplist-value 64
+    hll-sparse-max-bytes 3000
+    stream-node-max-bytes 4096
+    stream-node-max-entries 100
+    activerehashing yes
+    client-output-buffer-limit normal 0 0 0
+    client-output-buffer-limit replica 256mb 64mb 60
+    client-output-buffer-limit pubsub 32mb 8mb 60
+    hz 10
+    dynamic-hz yes
+    aof-rewrite-incremental-fsync yes
+    rdb-save-incremental-fsync yes
+---
+# Redis Cluster Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster
+  namespace: trading-prod
+  labels:
+    app: redis
+    role: cluster
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - port: 6379
+    targetPort: 6379
+    name: redis
+  - port: 16379
+    targetPort: 16379
+    name: cluster-bus
+  selector:
+    app: redis
+    role: cluster
+---
+# Redis Cluster StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-cluster
+  namespace: trading-prod
+spec:
+  serviceName: redis-cluster
+  replicas: 6
+  selector:
+    matchLabels:
+      app: redis
+      role: cluster
+  template:
+    metadata:
+      labels:
+        app: redis
+        role: cluster
+        app.kubernetes.io/part-of: trading-system
+        tier: data
+    spec:
+      serviceAccountName: redis-service-account
+      securityContext:
+        fsGroup: 999
+      initContainers:
+      - name: config-init
+        image: redis:7.0-alpine
+        command:
+        - /bin/sh
+        - -c
+        - |
+          cp /tmp/redis/redis.conf /etc/redis/redis.conf
+          sed -i "s/REDIS_PASSWORD_PLACEHOLDER/$REDIS_PASSWORD/g" /etc/redis/redis.conf
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-credentials
+              key: password
+        volumeMounts:
+        - name: redis-config
+          mountPath: /tmp/redis
+        - name: redis-config-writable
+          mountPath: /etc/redis
+      containers:
+      - name: redis
+        image: redis:7.0-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        - containerPort: 16379
+          name: cluster-bus
+        command:
+        - redis-server
+        - /etc/redis/redis.conf
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-credentials
+              key: password
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        - name: redis-config-writable
+          mountPath: /etc/redis
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - --no-auth-warning
+            - -a
+            - $(REDIS_PASSWORD)
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - --no-auth-warning
+            - -a
+            - $(REDIS_PASSWORD)
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 3
+      volumes:
+      - name: redis-config
+        configMap:
+          name: redis-config
+      - name: redis-config-writable
+        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: redis-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: fast-ssd
+      resources:
+        requests:
+          storage: 20Gi
+---
+# Redis Sentinel Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-sentinel-config
+  namespace: trading-prod
+data:
+  sentinel.conf: |
+    port 26379
+    dir /tmp
+    sentinel monitor mymaster redis-cluster-0.redis-cluster.trading-prod.svc.cluster.local 6379 2
+    sentinel auth-pass mymaster REDIS_PASSWORD_PLACEHOLDER
+    sentinel down-after-milliseconds mymaster 30000
+    sentinel parallel-syncs mymaster 1
+    sentinel failover-timeout mymaster 180000
+    sentinel deny-scripts-reconfig yes
+    logfile ""
+---
+# Redis Sentinel Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-sentinel
+  namespace: trading-prod
+  labels:
+    app: redis
+    role: sentinel
+spec:
+  type: ClusterIP
+  ports:
+  - port: 26379
+    targetPort: 26379
+    name: sentinel
+  selector:
+    app: redis
+    role: sentinel
+---
+# Redis Sentinel Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-sentinel
+  namespace: trading-prod
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redis
+      role: sentinel
+  template:
+    metadata:
+      labels:
+        app: redis
+        role: sentinel
+        app.kubernetes.io/part-of: trading-system
+        tier: data
+    spec:
+      serviceAccountName: redis-service-account
+      initContainers:
+      - name: config-init
+        image: redis:7.0-alpine
+        command:
+        - /bin/sh
+        - -c
+        - |
+          cp /tmp/sentinel/sentinel.conf /etc/redis/sentinel.conf
+          sed -i "s/REDIS_PASSWORD_PLACEHOLDER/$REDIS_PASSWORD/g" /etc/redis/sentinel.conf
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-credentials
+              key: password
+        volumeMounts:
+        - name: sentinel-config
+          mountPath: /tmp/sentinel
+        - name: sentinel-config-writable
+          mountPath: /etc/redis
+      containers:
+      - name: sentinel
+        image: redis:7.0-alpine
+        ports:
+        - containerPort: 26379
+          name: sentinel
+        command:
+        - redis-sentinel
+        - /etc/redis/sentinel.conf
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-credentials
+              key: password
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        volumeMounts:
+        - name: sentinel-config-writable
+          mountPath: /etc/redis
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - -p
+            - "26379"
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - -p
+            - "26379"
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 3
+      volumes:
+      - name: sentinel-config
+        configMap:
+          name: redis-sentinel-config
+      - name: sentinel-config-writable
+        emptyDir: {}
+---
+# Redis Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: redis-service-account
+  namespace: trading-prod
+  labels:
+    app: redis
+---
+# Redis Cluster Initialization Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: redis-cluster-init
+  namespace: trading-prod
+spec:
+  template:
+    spec:
+      serviceAccountName: redis-service-account
+      restartPolicy: OnFailure
+      containers:
+      - name: redis-cluster-init
+        image: redis:7.0-alpine
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Wait for all Redis pods to be ready
+          for i in $(seq 0 5); do
+            until redis-cli -h redis-cluster-$i.redis-cluster.trading-prod.svc.cluster.local -a $REDIS_PASSWORD ping; do
+              echo "Waiting for redis-cluster-$i..."
+              sleep 5
+            done
+          done
+          
+          # Create cluster
+          redis-cli --cluster create \
+            redis-cluster-0.redis-cluster.trading-prod.svc.cluster.local:6379 \
+            redis-cluster-1.redis-cluster.trading-prod.svc.cluster.local:6379 \
+            redis-cluster-2.redis-cluster.trading-prod.svc.cluster.local:6379 \
+            redis-cluster-3.redis-cluster.trading-prod.svc.cluster.local:6379 \
+            redis-cluster-4.redis-cluster.trading-prod.svc.cluster.local:6379 \
+            redis-cluster-5.redis-cluster.trading-prod.svc.cluster.local:6379 \
+            --cluster-replicas 1 \
+            --cluster-yes \
+            -a $REDIS_PASSWORD
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-credentials
+              key: password
+---
+# Redis Backup CronJob
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: redis-backup
+  namespace: trading-prod
+spec:
+  schedule: "0 3 * * *"  # Daily at 3 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: redis-service-account
+          containers:
+          - name: backup
+            image: redis:7.0-alpine
+            command:
+            - /bin/sh
+            - -c
+            - |
+              BACKUP_DIR="/backup/redis-backup-$(date +%Y%m%d-%H%M%S)"
+              mkdir -p $BACKUP_DIR
+              
+              # Backup each Redis node
+              for i in $(seq 0 5); do
+                redis-cli -h redis-cluster-$i.redis-cluster.trading-prod.svc.cluster.local \
+                  -a $REDIS_PASSWORD --rdb $BACKUP_DIR/redis-node-$i.rdb
+              done
+              
+              # Compress backup
+              tar -czf $BACKUP_DIR.tar.gz -C /backup $(basename $BACKUP_DIR)
+              rm -rf $BACKUP_DIR
+              
+              # Keep only last 7 days of backups
+              find /backup -name "redis-backup-*.tar.gz" -mtime +7 -delete
+            env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-credentials
+                  key: password
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: redis-backup-pvc
+          restartPolicy: OnFailure
+---
+# Redis Backup PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-backup-pvc
+  namespace: trading-prod
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 50Gi
+---
+# Redis Monitoring ServiceMonitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: redis-metrics
+  namespace: trading-prod
+  labels:
+    app: redis
+spec:
+  selector:
+    matchLabels:
+      app: redis
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+---
+# Redis Exporter for Prometheus
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-exporter
+  namespace: trading-prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-exporter
+  template:
+    metadata:
+      labels:
+        app: redis-exporter
+        app.kubernetes.io/part-of: trading-system
+        tier: monitoring
+    spec:
+      containers:
+      - name: redis-exporter
+        image: oliver006/redis_exporter:latest
+        ports:
+        - containerPort: 9121
+          name: metrics
+        env:
+        - name: REDIS_ADDR
+          value: "redis://redis-cluster:6379"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-credentials
+              key: password
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: 9121
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 9121
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+# Redis Exporter Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-exporter
+  namespace: trading-prod
+  labels:
+    app: redis-exporter
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9121
+    targetPort: 9121
+    name: metrics
+  selector:
+    app: redis-exporter

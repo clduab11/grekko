@@ -1,0 +1,566 @@
+# InfluxDB Cluster Configuration for Trading System
+# Time-series database for market data and metrics storage
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: influxdb-config
+  namespace: trading-prod
+data:
+  influxdb.conf: |
+    [meta]
+      dir = "/var/lib/influxdb/meta"
+      retention-autocreate = true
+      logging-enabled = true
+    
+    [data]
+      dir = "/var/lib/influxdb/data"
+      wal-dir = "/var/lib/influxdb/wal"
+      query-log-enabled = true
+      cache-max-memory-size = 1073741824
+      cache-snapshot-memory-size = 26214400
+      cache-snapshot-write-cold-duration = "10m"
+      compact-full-write-cold-duration = "4h"
+      max-series-per-database = 1000000
+      max-values-per-tag = 100000
+      max-concurrent-compactions = 0
+      max-index-log-file-size = 1048576
+      series-id-set-cache-size = 100
+    
+    [coordinator]
+      write-timeout = "10s"
+      max-concurrent-queries = 0
+      query-timeout = "0s"
+      log-queries-after = "0s"
+      max-select-point = 0
+      max-select-series = 0
+      max-select-buckets = 0
+    
+    [retention]
+      enabled = true
+      check-interval = "30m"
+    
+    [shard-precreation]
+      enabled = true
+      check-interval = "10m"
+      advance-period = "30m"
+    
+    [monitor]
+      store-enabled = true
+      store-database = "_internal"
+      store-interval = "10s"
+    
+    [subscriber]
+      enabled = true
+      http-timeout = "30s"
+      insecure-skip-verify = false
+      ca-certs = ""
+      write-concurrency = 40
+      write-buffer-size = 1000
+    
+    [http]
+      enabled = true
+      bind-address = ":8086"
+      auth-enabled = true
+      log-enabled = true
+      write-tracing = false
+      pprof-enabled = true
+      debug-pprof-enabled = false
+      https-enabled = false
+      max-row-limit = 0
+      max-connection-limit = 0
+      shared-secret = ""
+      realm = "InfluxDB"
+      unix-socket-enabled = false
+      bind-socket = "/var/run/influxdb.sock"
+      max-body-size = 25000000
+      access-log-path = ""
+      max-concurrent-write-limit = 0
+      max-enqueued-write-limit = 0
+      enqueued-write-timeout = 30000000000
+    
+    [logging]
+      format = "auto"
+      level = "info"
+      suppress-logo = false
+    
+    [continuous_queries]
+      log-enabled = true
+      enabled = true
+      query-stats-enabled = false
+      run-interval = "1s"
+---
+# InfluxDB Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: influxdb
+  namespace: trading-prod
+  labels:
+    app: influxdb
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8086
+    targetPort: 8086
+    name: http
+  - port: 8088
+    targetPort: 8088
+    name: rpc
+  selector:
+    app: influxdb
+---
+# InfluxDB Headless Service for StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: influxdb-headless
+  namespace: trading-prod
+  labels:
+    app: influxdb
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - port: 8086
+    targetPort: 8086
+    name: http
+  - port: 8088
+    targetPort: 8088
+    name: rpc
+  selector:
+    app: influxdb
+---
+# InfluxDB StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: influxdb
+  namespace: trading-prod
+spec:
+  serviceName: influxdb-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: influxdb
+  template:
+    metadata:
+      labels:
+        app: influxdb
+        app.kubernetes.io/part-of: trading-system
+        tier: data
+    spec:
+      serviceAccountName: influxdb-service-account
+      securityContext:
+        fsGroup: 999
+      initContainers:
+      - name: init-influxdb
+        image: influxdb:1.8-alpine
+        command:
+        - /bin/sh
+        - -c
+        - |
+          mkdir -p /var/lib/influxdb/meta
+          mkdir -p /var/lib/influxdb/data
+          mkdir -p /var/lib/influxdb/wal
+          chown -R influxdb:influxdb /var/lib/influxdb
+        volumeMounts:
+        - name: influxdb-data
+          mountPath: /var/lib/influxdb
+        securityContext:
+          runAsUser: 0
+      containers:
+      - name: influxdb
+        image: influxdb:1.8-alpine
+        ports:
+        - containerPort: 8086
+          name: http
+        - containerPort: 8088
+          name: rpc
+        env:
+        - name: INFLUXDB_DB
+          value: "trading"
+        - name: INFLUXDB_ADMIN_USER
+          valueFrom:
+            secretKeyRef:
+              name: influxdb-credentials
+              key: admin-username
+        - name: INFLUXDB_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: influxdb-credentials
+              key: admin-password
+        - name: INFLUXDB_USER
+          valueFrom:
+            secretKeyRef:
+              name: influxdb-credentials
+              key: username
+        - name: INFLUXDB_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: influxdb-credentials
+              key: password
+        - name: INFLUXDB_HTTP_AUTH_ENABLED
+          value: "true"
+        - name: INFLUXDB_CONFIG_PATH
+          value: "/etc/influxdb/influxdb.conf"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: influxdb-data
+          mountPath: /var/lib/influxdb
+        - name: influxdb-config
+          mountPath: /etc/influxdb
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 8086
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ping
+            port: 8086
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 3
+      volumes:
+      - name: influxdb-config
+        configMap:
+          name: influxdb-config
+  volumeClaimTemplates:
+  - metadata:
+      name: influxdb-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: fast-ssd
+      resources:
+        requests:
+          storage: 100Gi
+---
+# InfluxDB Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: influxdb-service-account
+  namespace: trading-prod
+  labels:
+    app: influxdb
+---
+# InfluxDB Backup CronJob
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: influxdb-backup
+  namespace: trading-prod
+spec:
+  schedule: "0 1 * * *"  # Daily at 1 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: influxdb-service-account
+          containers:
+          - name: backup
+            image: influxdb:1.8-alpine
+            command:
+            - /bin/sh
+            - -c
+            - |
+              BACKUP_DIR="/backup/influxdb-backup-$(date +%Y%m%d-%H%M%S)"
+              mkdir -p $BACKUP_DIR
+              
+              # Backup all databases
+              influxd backup -portable -host influxdb:8086 -username $INFLUXDB_ADMIN_USER -password $INFLUXDB_ADMIN_PASSWORD $BACKUP_DIR
+              
+              # Compress backup
+              tar -czf $BACKUP_DIR.tar.gz -C /backup $(basename $BACKUP_DIR)
+              rm -rf $BACKUP_DIR
+              
+              # Keep only last 30 days of backups
+              find /backup -name "influxdb-backup-*.tar.gz" -mtime +30 -delete
+            env:
+            - name: INFLUXDB_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: influxdb-credentials
+                  key: admin-username
+            - name: INFLUXDB_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: influxdb-credentials
+                  key: admin-password
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: influxdb-backup-pvc
+          restartPolicy: OnFailure
+---
+# InfluxDB Backup PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: influxdb-backup-pvc
+  namespace: trading-prod
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 200Gi
+---
+# InfluxDB Database Initialization Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: influxdb-init
+  namespace: trading-prod
+spec:
+  template:
+    spec:
+      serviceAccountName: influxdb-service-account
+      restartPolicy: OnFailure
+      containers:
+      - name: influxdb-init
+        image: influxdb:1.8-alpine
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Wait for InfluxDB to be ready
+          until influx -host influxdb -port 8086 -username $INFLUXDB_ADMIN_USER -password $INFLUXDB_ADMIN_PASSWORD -execute "SHOW DATABASES"; do
+            echo "Waiting for InfluxDB..."
+            sleep 5
+          done
+          
+          # Create databases
+          influx -host influxdb -port 8086 -username $INFLUXDB_ADMIN_USER -password $INFLUXDB_ADMIN_PASSWORD -execute "CREATE DATABASE trading"
+          influx -host influxdb -port 8086 -username $INFLUXDB_ADMIN_USER -password $INFLUXDB_ADMIN_PASSWORD -execute "CREATE DATABASE market_data"
+          influx -host influxdb -port 8086 -username $INFLUXDB_ADMIN_USER -password $INFLUXDB_ADMIN_PASSWORD -execute "CREATE DATABASE metrics"
+          influx -host influxdb -port 8086 -username $INFLUXDB_ADMIN_USER -password $INFLUXDB_ADMIN_PASSWORD -execute "CREATE DATABASE logs"
+          
+          # Create retention policies
+          influx -host influxdb -port 8086 -username $INFLUXDB_ADMIN_USER -password $INFLUXDB_ADMIN_PASSWORD -execute "CREATE RETENTION POLICY \"one_hour\" ON \"market_data\" DURATION 1h REPLICATION 1"
+          influx -host influxdb -port 8086 -username $INFLUXDB_ADMIN_USER -password $INFLUXDB_ADMIN_PASSWORD -execute "CREATE RETENTION POLICY \"one_day\" ON \"market_data\" DURATION 1d REPLICATION 1"
+          influx -host influxdb -port 8086 -username $INFLUXDB_ADMIN_USER -password $INFLUXDB_ADMIN_PASSWORD -execute "CREATE RETENTION POLICY \"one_week\" ON \"market_data\" DURATION 7d REPLICATION 1"
+          influx -host influxdb -port 8086 -username $INFLUXDB_ADMIN_USER -password $INFLUXDB_ADMIN_PASSWORD -execute "CREATE RETENTION POLICY \"one_month\" ON \"trading\" DURATION 30d REPLICATION 1"
+          influx -host influxdb -port 8086 -username $INFLUXDB_ADMIN_USER -password $INFLUXDB_ADMIN_PASSWORD -execute "CREATE RETENTION POLICY \"three_months\" ON \"metrics\" DURATION 90d REPLICATION 1"
+          
+          # Create continuous queries for downsampling
+          influx -host influxdb -port 8086 -username $INFLUXDB_ADMIN_USER -password $INFLUXDB_ADMIN_PASSWORD -execute "CREATE CONTINUOUS QUERY \"cq_market_data_1m\" ON \"market_data\" BEGIN SELECT mean(\"price\") AS \"price\", mean(\"volume\") AS \"volume\" INTO \"one_day\".\"market_data_1m\" FROM \"market_data\" GROUP BY time(1m), * END"
+          influx -host influxdb -port 8086 -username $INFLUXDB_ADMIN_USER -password $INFLUXDB_ADMIN_PASSWORD -execute "CREATE CONTINUOUS QUERY \"cq_market_data_5m\" ON \"market_data\" BEGIN SELECT mean(\"price\") AS \"price\", mean(\"volume\") AS \"volume\" INTO \"one_week\".\"market_data_5m\" FROM \"one_day\".\"market_data_1m\" GROUP BY time(5m), * END"
+          
+          echo "InfluxDB initialization completed"
+        env:
+        - name: INFLUXDB_ADMIN_USER
+          valueFrom:
+            secretKeyRef:
+              name: influxdb-credentials
+              key: admin-username
+        - name: INFLUXDB_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: influxdb-credentials
+              key: admin-password
+---
+# InfluxDB Monitoring ServiceMonitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: influxdb-metrics
+  namespace: trading-prod
+  labels:
+    app: influxdb
+spec:
+  selector:
+    matchLabels:
+      app: influxdb
+  endpoints:
+  - port: http
+    interval: 30s
+    path: /metrics
+---
+# Telegraf Configuration for InfluxDB Monitoring
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telegraf-config
+  namespace: trading-prod
+data:
+  telegraf.conf: |
+    [global_tags]
+      environment = "production"
+      cluster = "trading"
+    
+    [agent]
+      interval = "10s"
+      round_interval = true
+      metric_batch_size = 1000
+      metric_buffer_limit = 10000
+      collection_jitter = "0s"
+      flush_interval = "10s"
+      flush_jitter = "0s"
+      precision = ""
+      hostname = ""
+      omit_hostname = false
+    
+    [[outputs.influxdb]]
+      urls = ["http://influxdb:8086"]
+      database = "metrics"
+      username = "$INFLUXDB_USER"
+      password = "$INFLUXDB_PASSWORD"
+      retention_policy = "three_months"
+      write_consistency = "any"
+      timeout = "5s"
+    
+    [[inputs.cpu]]
+      percpu = true
+      totalcpu = true
+      collect_cpu_time = false
+      report_active = false
+    
+    [[inputs.disk]]
+      ignore_fs = ["tmpfs", "devtmpfs", "devfs", "iso9660", "overlay", "aufs", "squashfs"]
+    
+    [[inputs.diskio]]
+    
+    [[inputs.kernel]]
+    
+    [[inputs.mem]]
+    
+    [[inputs.processes]]
+    
+    [[inputs.swap]]
+    
+    [[inputs.system]]
+    
+    [[inputs.net]]
+    
+    [[inputs.netstat]]
+    
+    [[inputs.interrupts]]
+    
+    [[inputs.linux_sysctl_fs]]
+    
+    [[inputs.kubernetes]]
+      url = "https://$HOSTIP:10250"
+      bearer_token = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      insecure_skip_verify = true
+---
+# Telegraf DaemonSet
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: telegraf
+  namespace: trading-prod
+spec:
+  selector:
+    matchLabels:
+      app: telegraf
+  template:
+    metadata:
+      labels:
+        app: telegraf
+        app.kubernetes.io/part-of: trading-system
+        tier: monitoring
+    spec:
+      serviceAccountName: telegraf-service-account
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - name: telegraf
+        image: telegraf:1.24-alpine
+        env:
+        - name: HOSTIP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: INFLUXDB_USER
+          valueFrom:
+            secretKeyRef:
+              name: influxdb-credentials
+              key: username
+        - name: INFLUXDB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: influxdb-credentials
+              key: password
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        volumeMounts:
+        - name: telegraf-config
+          mountPath: /etc/telegraf
+        - name: proc
+          mountPath: /host/proc
+          readOnly: true
+        - name: sys
+          mountPath: /host/sys
+          readOnly: true
+        - name: etc
+          mountPath: /host/etc
+          readOnly: true
+      volumes:
+      - name: telegraf-config
+        configMap:
+          name: telegraf-config
+      - name: proc
+        hostPath:
+          path: /proc
+      - name: sys
+        hostPath:
+          path: /sys
+      - name: etc
+        hostPath:
+          path: /etc
+---
+# Telegraf Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: telegraf-service-account
+  namespace: trading-prod
+  labels:
+    app: telegraf
+---
+# Telegraf ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: telegraf
+rules:
+- apiGroups: [""]
+  resources: ["nodes", "nodes/proxy", "services", "endpoints", "pods"]
+  verbs: ["get", "list", "watch"]
+---
+# Telegraf ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: telegraf
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: telegraf
+subjects:
+- kind: ServiceAccount
+  name: telegraf-service-account
+  namespace: trading-prod

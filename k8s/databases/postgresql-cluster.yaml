@@ -1,0 +1,414 @@
+# PostgreSQL Cluster Configuration for Trading System
+# High-availability setup with streaming replication and automated failover
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-config
+  namespace: trading-prod
+data:
+  postgresql.conf: |
+    # Connection Settings
+    listen_addresses = '*'
+    port = 5432
+    max_connections = 200
+    shared_buffers = 256MB
+    
+    # Write Ahead Logging
+    wal_level = replica
+    max_wal_senders = 3
+    max_replication_slots = 3
+    wal_keep_segments = 32
+    
+    # Archiving
+    archive_mode = on
+    archive_command = 'cp %p /var/lib/postgresql/archive/%f'
+    
+    # Performance Tuning
+    effective_cache_size = 1GB
+    work_mem = 4MB
+    maintenance_work_mem = 64MB
+    checkpoint_completion_target = 0.9
+    wal_buffers = 16MB
+    
+    # Logging
+    log_destination = 'stderr'
+    logging_collector = on
+    log_directory = 'pg_log'
+    log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
+    log_statement = 'all'
+    log_min_duration_statement = 1000
+    
+    # Security
+    ssl = on
+    ssl_cert_file = '/etc/ssl/certs/server.crt'
+    ssl_key_file = '/etc/ssl/private/server.key'
+  
+  pg_hba.conf: |
+    # TYPE  DATABASE        USER            ADDRESS                 METHOD
+    local   all             all                                     trust
+    host    all             all             127.0.0.1/32            md5
+    host    all             all             ::1/128                 md5
+    host    replication     replicator      0.0.0.0/0               md5
+    host    all             all             0.0.0.0/0               md5
+---
+# PostgreSQL Primary Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql-primary
+  namespace: trading-prod
+  labels:
+    app: postgresql
+    role: primary
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: postgresql
+  selector:
+    app: postgresql
+    role: primary
+---
+# PostgreSQL Replica Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql-replica
+  namespace: trading-prod
+  labels:
+    app: postgresql
+    role: replica
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: postgresql
+  selector:
+    app: postgresql
+    role: replica
+---
+# PostgreSQL Primary StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgresql-primary
+  namespace: trading-prod
+spec:
+  serviceName: postgresql-primary
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgresql
+      role: primary
+  template:
+    metadata:
+      labels:
+        app: postgresql
+        role: primary
+        app.kubernetes.io/part-of: trading-system
+        tier: data
+    spec:
+      serviceAccountName: postgresql-service-account
+      securityContext:
+        fsGroup: 999
+      containers:
+      - name: postgresql
+        image: postgres:15.4-alpine
+        ports:
+        - containerPort: 5432
+          name: postgresql
+        env:
+        - name: POSTGRES_DB
+          value: "trading"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-credentials
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-credentials
+              key: password
+        - name: POSTGRES_REPLICATION_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-credentials
+              key: replication-username
+        - name: POSTGRES_REPLICATION_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-credentials
+              key: replication-password
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: postgresql-data
+          mountPath: /var/lib/postgresql/data
+        - name: postgresql-config
+          mountPath: /etc/postgresql
+        - name: postgresql-archive
+          mountPath: /var/lib/postgresql/archive
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1 -p 5432
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 6
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1 -p 5432
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+      volumes:
+      - name: postgresql-config
+        configMap:
+          name: postgresql-config
+      - name: postgresql-archive
+        persistentVolumeClaim:
+          claimName: postgresql-archive-pvc
+  volumeClaimTemplates:
+  - metadata:
+      name: postgresql-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: fast-ssd
+      resources:
+        requests:
+          storage: 100Gi
+---
+# PostgreSQL Replica StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgresql-replica
+  namespace: trading-prod
+spec:
+  serviceName: postgresql-replica
+  replicas: 2
+  selector:
+    matchLabels:
+      app: postgresql
+      role: replica
+  template:
+    metadata:
+      labels:
+        app: postgresql
+        role: replica
+        app.kubernetes.io/part-of: trading-system
+        tier: data
+    spec:
+      serviceAccountName: postgresql-service-account
+      securityContext:
+        fsGroup: 999
+      initContainers:
+      - name: init-replica
+        image: postgres:15.4-alpine
+        command:
+        - /bin/bash
+        - -c
+        - |
+          if [ ! -f /var/lib/postgresql/data/pgdata/PG_VERSION ]; then
+            pg_basebackup -h postgresql-primary -D /var/lib/postgresql/data/pgdata -U replicator -v -P -W
+            echo "standby_mode = 'on'" >> /var/lib/postgresql/data/pgdata/recovery.conf
+            echo "primary_conninfo = 'host=postgresql-primary port=5432 user=replicator'" >> /var/lib/postgresql/data/pgdata/recovery.conf
+          fi
+        env:
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-credentials
+              key: replication-password
+        volumeMounts:
+        - name: postgresql-data
+          mountPath: /var/lib/postgresql/data
+      containers:
+      - name: postgresql
+        image: postgres:15.4-alpine
+        ports:
+        - containerPort: 5432
+          name: postgresql
+        env:
+        - name: POSTGRES_DB
+          value: "trading"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-credentials
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-credentials
+              key: password
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        volumeMounts:
+        - name: postgresql-data
+          mountPath: /var/lib/postgresql/data
+        - name: postgresql-config
+          mountPath: /etc/postgresql
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1 -p 5432
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 6
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1 -p 5432
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+      volumes:
+      - name: postgresql-config
+        configMap:
+          name: postgresql-config
+  volumeClaimTemplates:
+  - metadata:
+      name: postgresql-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: fast-ssd
+      resources:
+        requests:
+          storage: 100Gi
+---
+# PostgreSQL Archive PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgresql-archive-pvc
+  namespace: trading-prod
+spec:
+  accessModes:
+  - ReadWriteMany
+  storageClassName: shared-storage
+  resources:
+    requests:
+      storage: 50Gi
+---
+# PostgreSQL Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: postgresql-service-account
+  namespace: trading-prod
+  labels:
+    app: postgresql
+---
+# PostgreSQL Backup CronJob
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgresql-backup
+  namespace: trading-prod
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: postgresql-service-account
+          containers:
+          - name: backup
+            image: postgres:15.4-alpine
+            command:
+            - /bin/bash
+            - -c
+            - |
+              BACKUP_FILE="/backup/postgresql-backup-$(date +%Y%m%d-%H%M%S).sql"
+              pg_dump -h postgresql-primary -U $POSTGRES_USER -d $POSTGRES_DB > $BACKUP_FILE
+              gzip $BACKUP_FILE
+              # Keep only last 30 days of backups
+              find /backup -name "postgresql-backup-*.sql.gz" -mtime +30 -delete
+            env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-credentials
+                  key: username
+            - name: POSTGRES_DB
+              value: "trading"
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-credentials
+                  key: password
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: postgresql-backup-pvc
+          restartPolicy: OnFailure
+---
+# PostgreSQL Backup PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgresql-backup-pvc
+  namespace: trading-prod
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 200Gi
+---
+# PostgreSQL Monitoring ServiceMonitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgresql-metrics
+  namespace: trading-prod
+  labels:
+    app: postgresql
+spec:
+  selector:
+    matchLabels:
+      app: postgresql
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics

@@ -1,0 +1,412 @@
+# GitHub Actions CI/CD Pipeline for Trading System
+# Automated testing, building, security scanning, and deployment
+
+name: Trading System CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
+jobs:
+  # Security and Code Quality Checks
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Run Bandit security linter
+      run: |
+        pip install bandit[toml]
+        bandit -r src/ -f json -o bandit-report.json || true
+
+    - name: Run Safety check
+      run: |
+        pip install safety
+        safety check --json --output safety-report.json || true
+
+    - name: Upload security artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          trivy-results.sarif
+          bandit-report.json
+          safety-report.json
+
+  # Code Quality and Linting
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install black isort flake8 mypy pylint
+
+    - name: Run Black formatter check
+      run: black --check --diff src/
+
+    - name: Run isort import sorting check
+      run: isort --check-only --diff src/
+
+    - name: Run flake8 linting
+      run: flake8 src/ --max-line-length=88 --extend-ignore=E203,W503
+
+    - name: Run mypy type checking
+      run: mypy src/ --ignore-missing-imports
+
+    - name: Run pylint
+      run: pylint src/ --disable=C0114,C0115,C0116
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Run ESLint
+      working-directory: ./frontend
+      run: npm run lint
+
+    - name: Run Prettier check
+      working-directory: ./frontend
+      run: npm run format:check
+
+  # Unit and Integration Tests
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: test_trading
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r tests/test_requirements.txt
+
+    - name: Run unit tests
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_trading
+        REDIS_URL: redis://localhost:6379/0
+        TESTING: true
+      run: |
+        pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=html
+
+    - name: Run integration tests
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_trading
+        REDIS_URL: redis://localhost:6379/0
+        TESTING: true
+      run: |
+        pytest tests/integration/ -v --cov=src --cov-append --cov-report=xml
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Run frontend tests
+      working-directory: ./frontend
+      run: npm test -- --coverage --watchAll=false
+
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: |
+          coverage.xml
+          htmlcov/
+          frontend/coverage/
+
+  # Build and Push Container Images
+  build:
+    name: Build Images
+    runs-on: ubuntu-latest
+    needs: [security-scan, code-quality, test]
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tag: ${{ steps.meta.outputs.tags }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./docker/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+    - name: Generate SBOM
+      uses: anchore/sbom-action@v0
+      with:
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        format: spdx-json
+        output-file: sbom.spdx.json
+
+    - name: Scan image with Grype
+      uses: anchore/scan-action@v3
+      with:
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        fail-build: false
+        severity-cutoff: high
+
+    - name: Upload SBOM
+      uses: actions/upload-artifact@v3
+      with:
+        name: sbom
+        path: sbom.spdx.json
+
+  # Deploy to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+      url: https://staging.grekko.trading
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+
+    - name: Update image tags
+      run: |
+        sed -i "s|image: .*|image: ${{ needs.build.outputs.image-tag }}|g" k8s/apps/trading-services.yaml
+
+    - name: Deploy to staging
+      run: |
+        kubectl apply -f k8s/namespaces/
+        kubectl apply -f k8s/secrets/staging/
+        kubectl apply -f k8s/databases/
+        kubectl apply -f k8s/message-bus/
+        kubectl apply -f k8s/monitoring/
+        kubectl apply -f k8s/apps/
+        kubectl rollout status deployment/trading-api -n trading-staging --timeout=300s
+
+    - name: Run smoke tests
+      run: |
+        kubectl wait --for=condition=ready pod -l app=trading-api -n trading-staging --timeout=300s
+        # Run basic health checks
+        kubectl exec -n trading-staging deployment/trading-api -- curl -f http://localhost:8000/health
+
+  # Deploy to Production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build, deploy-staging]
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://grekko.trading
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+
+    - name: Update ArgoCD application
+      run: |
+        # Update the ArgoCD application with new image tag
+        kubectl patch application trading-system -n argocd --type='merge' -p='{"spec":{"source":{"helm":{"parameters":[{"name":"image.tag","value":"${{ github.sha }}"}]}}}}'
+
+    - name: Wait for deployment
+      run: |
+        kubectl wait --for=condition=Synced application/trading-system -n argocd --timeout=600s
+        kubectl wait --for=condition=Healthy application/trading-system -n argocd --timeout=600s
+
+    - name: Run production smoke tests
+      run: |
+        # Wait for pods to be ready
+        kubectl wait --for=condition=ready pod -l app=trading-api -n trading-prod --timeout=300s
+        
+        # Run comprehensive health checks
+        kubectl exec -n trading-prod deployment/trading-api -- curl -f http://localhost:8000/health
+        kubectl exec -n trading-prod deployment/trading-api -- curl -f http://localhost:8000/metrics
+
+    - name: Notify deployment success
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        channel: '#deployments'
+        text: 'Production deployment successful! :rocket:'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # Performance Testing
+  performance-test:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.ref == 'refs/heads/develop'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up K6
+      run: |
+        sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+        echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+        sudo apt-get update
+        sudo apt-get install k6
+
+    - name: Run load tests
+      run: |
+        k6 run tests/performance/load-test.js --env STAGING_URL=https://staging.grekko.trading
+
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-results
+        path: performance-results.json
+
+  # Cleanup
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: always()
+    steps:
+    - name: Clean up old images
+      run: |
+        # Keep only the last 10 images
+        echo "Cleaning up old container images..."
+        # This would typically use a script to clean up old images from the registry
+
+    - name: Clean up staging resources
+      if: github.ref == 'refs/heads/main'
+      run: |
+        echo "Cleaning up staging environment resources..."
+        # This would clean up temporary staging resources if needed

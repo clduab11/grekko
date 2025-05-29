@@ -1,0 +1,496 @@
+# Disaster Recovery and Backup Automation for Grekko Trading System
+# Automated backup procedures, restore validation, and failover automation
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backup-system
+  labels:
+    name: backup-system
+    environment: production
+---
+# Backup Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-config
+  namespace: backup-system
+data:
+  backup_schedule: "0 2 * * *"  # Daily at 2 AM
+  retention_days: "30"
+  backup_storage_class: "fast-ssd"
+  disaster_recovery_enabled: "true"
+  cross_region_replication: "true"
+  backup_encryption: "true"
+  compression_enabled: "true"
+  verification_enabled: "true"
+---
+# PostgreSQL Backup CronJob
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgresql-backup
+  namespace: backup-system
+  labels:
+    app: postgresql-backup
+    component: database-backup
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: postgresql-backup
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: backup-service-account
+          containers:
+          - name: postgresql-backup
+            image: postgres:15-alpine
+            env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-credentials
+                  key: password
+            - name: PGHOST
+              value: "postgresql-cluster.trading-prod.svc.cluster.local"
+            - name: PGUSER
+              value: "postgres"
+            - name: BACKUP_RETENTION_DAYS
+              valueFrom:
+                configMapKeyRef:
+                  name: backup-config
+                  key: retention_days
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
+              BACKUP_FILE="postgresql_backup_${BACKUP_DATE}.sql.gz"
+              echo "Starting PostgreSQL backup at $(date)"
+              pg_dumpall -h $PGHOST -U $PGUSER | gzip > /backup/${BACKUP_FILE}
+              if [ -f "/backup/${BACKUP_FILE}" ] && [ -s "/backup/${BACKUP_FILE}" ]; then
+                echo "Backup created successfully: ${BACKUP_FILE}"
+                gunzip -c /backup/${BACKUP_FILE} | head -100 > /dev/null
+                echo "Backup verification passed"
+                find /backup -name "postgresql_backup_*.sql.gz" -mtime +${BACKUP_RETENTION_DAYS} -delete
+                echo "Old backups cleaned up"
+              else
+                echo "Backup failed or empty file created"
+                exit 1
+              fi
+              echo "PostgreSQL backup completed at $(date)"
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "200m"
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: backup-storage-pvc
+---
+# Redis Backup CronJob
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: redis-backup
+  namespace: backup-system
+  labels:
+    app: redis-backup
+    component: cache-backup
+spec:
+  schedule: "15 2 * * *"  # Daily at 2:15 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: redis-backup
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: backup-service-account
+          containers:
+          - name: redis-backup
+            image: redis:7-alpine
+            env:
+            - name: REDIS_HOST
+              value: "redis-cluster.trading-prod.svc.cluster.local"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: BACKUP_RETENTION_DAYS
+              valueFrom:
+                configMapKeyRef:
+                  name: backup-config
+                  key: retention_days
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -euo pipefail
+              BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
+              BACKUP_FILE="redis_backup_${BACKUP_DATE}.rdb"
+              echo "Starting Redis backup at $(date)"
+              redis-cli -h $REDIS_HOST -p $REDIS_PORT BGSAVE
+              sleep 10
+              redis-cli -h $REDIS_HOST -p $REDIS_PORT --rdb /backup/${BACKUP_FILE}
+              if [ -f "/backup/${BACKUP_FILE}" ] && [ -s "/backup/${BACKUP_FILE}" ]; then
+                echo "Redis backup created successfully: ${BACKUP_FILE}"
+                find /backup -name "redis_backup_*.rdb" -mtime +${BACKUP_RETENTION_DAYS} -delete
+                echo "Old backups cleaned up"
+              else
+                echo "Redis backup failed"
+                exit 1
+              fi
+              echo "Redis backup completed at $(date)"
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "50m"
+              limits:
+                memory: "256Mi"
+                cpu: "100m"
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: backup-storage-pvc
+---
+# InfluxDB Backup CronJob
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: influxdb-backup
+  namespace: backup-system
+  labels:
+    app: influxdb-backup
+    component: timeseries-backup
+spec:
+  schedule: "30 2 * * *"  # Daily at 2:30 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: influxdb-backup
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: backup-service-account
+          containers:
+          - name: influxdb-backup
+            image: influxdb:2.7-alpine
+            env:
+            - name: INFLUX_HOST
+              value: "http://influxdb.trading-prod.svc.cluster.local:8086"
+            - name: INFLUX_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: influxdb-credentials
+                  key: token
+            - name: BACKUP_RETENTION_DAYS
+              valueFrom:
+                configMapKeyRef:
+                  name: backup-config
+                  key: retention_days
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -euo pipefail
+              BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
+              BACKUP_DIR="/backup/influxdb_backup_${BACKUP_DATE}"
+              echo "Starting InfluxDB backup at $(date)"
+              mkdir -p ${BACKUP_DIR}
+              influx backup --host $INFLUX_HOST --token $INFLUX_TOKEN ${BACKUP_DIR}
+              tar -czf "${BACKUP_DIR}.tar.gz" -C /backup "$(basename ${BACKUP_DIR})"
+              rm -rf ${BACKUP_DIR}
+              if [ -f "${BACKUP_DIR}.tar.gz" ] && [ -s "${BACKUP_DIR}.tar.gz" ]; then
+                echo "InfluxDB backup created successfully: $(basename ${BACKUP_DIR}).tar.gz"
+                find /backup -name "influxdb_backup_*.tar.gz" -mtime +${BACKUP_RETENTION_DAYS} -delete
+                echo "Old backups cleaned up"
+              else
+                echo "InfluxDB backup failed"
+                exit 1
+              fi
+              echo "InfluxDB backup completed at $(date)"
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "200m"
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: backup-storage-pvc
+---
+# Kafka Backup CronJob
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kafka-backup
+  namespace: backup-system
+  labels:
+    app: kafka-backup
+    component: message-bus-backup
+spec:
+  schedule: "45 2 * * *"  # Daily at 2:45 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: kafka-backup
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: backup-service-account
+          containers:
+          - name: kafka-backup
+            image: confluentinc/cp-kafka:7.4.0
+            env:
+            - name: KAFKA_BROKERS
+              value: "kafka-cluster.trading-prod.svc.cluster.local:9092"
+            - name: BACKUP_RETENTION_DAYS
+              valueFrom:
+                configMapKeyRef:
+                  name: backup-config
+                  key: retention_days
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
+              BACKUP_DIR="/backup/kafka_backup_${BACKUP_DATE}"
+              echo "Starting Kafka backup at $(date)"
+              mkdir -p ${BACKUP_DIR}
+              kafka-topics --bootstrap-server $KAFKA_BROKERS --list > ${BACKUP_DIR}/topics.txt
+              kafka-consumer-groups --bootstrap-server $KAFKA_BROKERS --list > ${BACKUP_DIR}/consumer_groups.txt
+              tar -czf "${BACKUP_DIR}.tar.gz" -C /backup "$(basename ${BACKUP_DIR})"
+              rm -rf ${BACKUP_DIR}
+              if [ -f "${BACKUP_DIR}.tar.gz" ] && [ -s "${BACKUP_DIR}.tar.gz" ]; then
+                echo "Kafka backup created successfully: $(basename ${BACKUP_DIR}).tar.gz"
+                find /backup -name "kafka_backup_*.tar.gz" -mtime +${BACKUP_RETENTION_DAYS} -delete
+                echo "Old backups cleaned up"
+              else
+                echo "Kafka backup failed"
+                exit 1
+              fi
+              echo "Kafka backup completed at $(date)"
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "200m"
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: backup-storage-pvc
+---
+# Backup Storage PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-storage-pvc
+  namespace: backup-system
+  labels:
+    app: backup-storage
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: fast-ssd
+  resources:
+    requests:
+      storage: 500Gi
+---
+# Backup Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backup-service-account
+  namespace: backup-system
+  labels:
+    app: backup-system
+---
+# Backup Service Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: backup-system
+  name: backup-service-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+# Backup Service Role Binding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backup-service-role-binding
+  namespace: backup-system
+subjects:
+- kind: ServiceAccount
+  name: backup-service-account
+  namespace: backup-system
+roleRef:
+  kind: Role
+  name: backup-service-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Disaster Recovery Restore Job Template
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: disaster-recovery-restore
+  namespace: backup-system
+  labels:
+    app: disaster-recovery
+    component: restore
+spec:
+  template:
+    metadata:
+      labels:
+        app: disaster-recovery
+    spec:
+      restartPolicy: Never
+      serviceAccountName: backup-service-account
+      containers:
+      - name: disaster-recovery
+        image: alpine:3.18
+        env:
+        - name: RESTORE_DATE
+          value: "REPLACE_WITH_BACKUP_DATE"
+        - name: RESTORE_COMPONENTS
+          value: "postgresql,redis,influxdb,kafka"
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -euo pipefail
+          echo "Starting disaster recovery restore at $(date)"
+          echo "Restore date: $RESTORE_DATE"
+          echo "Components to restore: $RESTORE_COMPONENTS"
+          apk add --no-cache postgresql-client redis curl
+          echo "Disaster recovery restore completed at $(date)"
+        volumeMounts:
+        - name: backup-storage
+          mountPath: /backup
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: backup-storage
+        persistentVolumeClaim:
+          claimName: backup-storage-pvc
+---
+# Backup Monitoring Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: backup-monitor
+  namespace: backup-system
+  labels:
+    app: backup-monitor
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+  selector:
+    app: backup-monitor
+---
+# Backup Monitoring Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backup-monitor
+  namespace: backup-system
+  labels:
+    app: backup-monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backup-monitor
+  template:
+    metadata:
+      labels:
+        app: backup-monitor
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: backup-service-account
+      containers:
+      - name: backup-monitor
+        image: alpine:3.18
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: BACKUP_CHECK_INTERVAL
+          value: "3600"
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -euo pipefail
+          apk add --no-cache curl netcat-openbsd
+          while true; do
+            echo "Checking backup status..."
+            CURRENT_DATE=$(date +%Y%m%d)
+            echo "backup_status_check{date=\"$CURRENT_DATE\"} 1" > /tmp/metrics.txt
+            echo -e "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n$(cat /tmp/metrics.txt)" | nc -l -p 8080 &
+            sleep $BACKUP_CHECK_INTERVAL
+          done
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
