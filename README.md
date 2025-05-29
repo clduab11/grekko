@@ -7,7 +7,7 @@
 
 ---
 
-**Grekko** is a next-generation, AI-driven cryptocurrency trading platform featuring ensemble decision-making, multi-exchange and on-chain intelligence, Solana sniping, robust risk management, and a modular, extensible architecture. Designed for both researchers and advanced traders, Grekko enables rapid strategy development, real-time execution, and deep analytics across centralized and decentralized markets.
+**Grekko** is a next-generation, AI-driven cryptocurrency trading platform featuring ensemble decision-making, multi-exchange and on-chain intelligence, Solana sniping, robust risk management, and a modern web interface. Designed for both researchers and advanced traders, Grekko enables rapid strategy development, real-time execution, and deep analytics across centralized and decentralized markets through both programmatic APIs and an intuitive React-based dashboard.
 
 ---
 
@@ -16,6 +16,7 @@
 - **AI Ensemble Trading:** Adaptive agent orchestration, LLM/ML-based alpha generation, and reinforcement learning.
 - **Multi-Exchange & On-Chain Intelligence:** Integrates CEX, DEX, and on-chain data for holistic market analysis.
 - **Solana Sniper Bot:** Sub-second detection and execution on new Solana tokens, with advanced safety/rug detection.
+- **Modern Web Interface:** React-based dashboard with real-time charts, agent management, and trading controls.
 - **Risk Management:** Circuit breakers, exposure controls, stop-loss, and anonymity modules.
 - **TradingView Webhook Support:** Secure, real-time trade execution via TradingView alerts.
 - **Modular API:** FastAPI-based, with REST and WebSocket endpoints for control, monitoring, and integration.
@@ -30,7 +31,23 @@
 Grekko is organized into modular components:
 
 ```
-src/
+frontend/                  # React-based web interface
+├── public/                # Static assets and HTML template
+├── src/
+│   ├── components/        # React components
+│   │   ├── agents/        # Agent management UI
+│   │   ├── chart/         # Trading charts and visualizations
+│   │   └── layout/        # Layout components (header, sidebar, etc.)
+│   ├── services/          # API communication and WebSocket services
+│   ├── store/             # Redux store and state management
+│   │   └── slices/        # Redux slices for different data domains
+│   ├── theme/             # UI theme and styling
+│   ├── App.tsx            # Main React application
+│   └── index.tsx          # Application entry point
+├── package.json           # Node.js dependencies and scripts
+└── tsconfig.json          # TypeScript configuration
+
+src/                       # Python backend services
 ├── ai_adaptation/         # Adaptive agents, LLM ensemble, RL, model training
 ├── alpha_generation/      # Alpha signals: on-chain, social, alt-data, volatility
 ├── api/                   # FastAPI app, TradingView webhook, REST/WebSocket
@@ -58,6 +75,7 @@ See [`IMPLEMENTATION_SUMMARY.md`](IMPLEMENTATION_SUMMARY.md) and [`FUTURE_ROADMA
 ### Prerequisites
 
 - Python 3.11+
+- Node.js 16+ and npm (for frontend)
 - PostgreSQL (for trade/performance storage)
 - [Optional] Docker & Docker Compose
 
@@ -77,7 +95,15 @@ source ~/.bashrc  # or ~/.zshrc
 pip install -r requirements.txt
 ```
 
-### 3. [Optional] Install Test Dependencies
+### 3. Install Frontend Dependencies
+
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+### 4. [Optional] Install Test Dependencies
 
 ```bash
 pip install -r tests/test_requirements.txt
@@ -129,11 +155,26 @@ See `.env.production.example` for required secrets (API keys, DB credentials, Tr
 
 ## 🏃 Usage
 
-### 1. Start the Platform
+### 1. Start the Backend Platform
 
 ```bash
 python start_sniper.py
 ```
+
+### 2. Start the Frontend Dashboard (Optional)
+
+For the web interface:
+
+```bash
+cd frontend
+npm start
+```
+
+The React dashboard will be available at `http://localhost:3000` with:
+- Real-time trading charts
+- AI agent management interface
+- Portfolio and position monitoring
+- Trading controls and strategy configuration
 
 ### 2. API Endpoints
 
