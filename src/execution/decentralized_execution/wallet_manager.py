@@ -46,26 +46,27 @@ class RotationPolicy(Enum):
 class WalletManager:
     """
     Secure manager for blockchain wallets across multiple networks.
-    
+
     This class handles all aspects of wallet management for decentralized
     execution, including key storage, address rotation, balance monitoring,
-    and transaction signing.
-    
+    transaction signing, and integration with external wallet providers.
+
     Attributes:
         credentials_manager (CredentialsManager): Secure storage for private keys
         wallets (Dict[str, List[Dict]]): Map of all wallets by blockchain
         active_wallets (Dict[str, Dict]): Currently active wallets by blockchain
         rotation_policies (Dict[str, Dict]): Rotation policy settings by blockchain
         logger (logging.Logger): Logger for wallet events
+        external_providers (Dict[str, Any]): Registered external wallet providers (e.g., MetaMask, Coinbase)
     """
-    
-    def __init__(self, 
+
+    def __init__(self,
                 credentials_manager: CredentialsManager,
                 config: Dict[str, Any] = None,
                 circuit_breaker: Optional[CircuitBreaker] = None):
         """
         Initialize the wallet manager.
-        
+
         Args:
             credentials_manager (CredentialsManager): Secure storage for keys
             config (Dict[str, Any], optional): Configuration parameters
@@ -74,11 +75,14 @@ class WalletManager:
         self.credentials_manager = credentials_manager
         self.config = config or {}
         self.circuit_breaker = circuit_breaker
-        
+
         # Initialize wallet storage
         self.wallets = {}  # chain -> [wallet_info]
         self.active_wallets = {}  # chain -> wallet_info
-        
+
+        # External wallet providers (MetaMask, Coinbase, etc.)
+        self.external_providers = {}  # provider_name -> WalletProvider instance
+
         # Default rotation policies
         self.rotation_policies = {
             BlockchainNetwork.ETHEREUM.value: {
@@ -90,7 +94,7 @@ class WalletManager:
                 "last_rotation": time.time()
             }
         }
-        
+
         # Update with config if provided
         if config and "rotation_policies" in config:
             for chain, policy in config["rotation_policies"].items():
@@ -98,19 +102,42 @@ class WalletManager:
                     self.rotation_policies[chain].update(policy)
                 else:
                     self.rotation_policies[chain] = policy
-        
+
         self.logger = get_logger('wallet_manager')
         self.logger.info("Wallet manager initialized")
-        
+
         # Stats for wallet usage
         self.stats = {
             "transactions_count": 0,
             "rotations_performed": 0,
             "rebalances_performed": 0
         }
-        
+
         # Initialize wallets from credentials
         self._init_wallets()
+
+    def register_external_provider(self, provider_name: str, provider_instance: Any) -> None:
+        """
+        Register an external wallet provider (e.g., MetaMask, Coinbase).
+
+        Args:
+            provider_name (str): Name of the provider (e.g., 'metamask', 'coinbase')
+            provider_instance (WalletProvider): Instance of the provider
+        """
+        self.external_providers[provider_name.lower()] = provider_instance
+        self.logger.info(f"Registered external wallet provider: {provider_name}")
+
+    def get_external_provider(self, provider_name: str) -> Optional[Any]:
+        """
+        Retrieve a registered external wallet provider.
+
+        Args:
+            provider_name (str): Name of the provider
+
+        Returns:
+            WalletProvider instance or None
+        """
+        return self.external_providers.get(provider_name.lower())
     
     def _init_wallets(self):
         """Initialize wallets from stored credentials."""
