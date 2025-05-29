@@ -52,15 +52,16 @@ class OrderStatus(Enum):
 class ExecutionManager:
     """
     Main execution orchestration layer for the Grekko trading platform.
-    
+
     Manages trade execution across multiple exchanges, handles order routing,
-    implements retry logic, and optimizes for latency.
+    implements retry logic, and optimizes for latency. Supports wallet-native
+    trading via external wallet providers (MetaMask, Coinbase, etc.).
     """
-    
+
     def __init__(self, config: Dict[str, Any], risk_manager: RiskManager):
         """
         Initialize the ExecutionManager.
-        
+
         Args:
             config: Configuration dictionary
             risk_manager: Risk management instance
@@ -68,17 +69,17 @@ class ExecutionManager:
         self.config = config
         self.risk_manager = risk_manager
         self.logger = get_logger('execution_manager')
-        
+
         # Initialize components
         self.latency_optimizer = LatencyOptimizer(config.get('latency', {}))
         self.order_router = OrderRouter(config.get('routing', {}))
         self.wallet_manager = WalletManager(config.get('wallet', {}))
         self.transaction_router = TransactionRouter(config.get('dex', {}))
-        
+
         # Initialize exchange executors
         self.executors = {}
         self._init_executors()
-        
+
         # Performance tracking
         self.metrics = {
             'total_orders': 0,
@@ -87,12 +88,24 @@ class ExecutionManager:
             'avg_latency_ms': 0,
             'total_volume': 0
         }
-        
+
         # Order tracking
         self.active_orders = {}
         self.order_history = []
-        
+
         self.logger.info("ExecutionManager initialized with %d executors", len(self.executors))
+
+    def register_wallet_provider(self, provider_name: str, provider_instance: Any) -> None:
+        """
+        Register an external wallet provider (MetaMask, Coinbase, etc.) for wallet-native trading.
+
+        Args:
+            provider_name (str): Name of the provider (e.g., 'metamask', 'coinbase')
+            provider_instance (WalletProvider): Instance of the provider
+        """
+        self.wallet_manager.register_external_provider(provider_name, provider_instance)
+        self.logger.info(f"Registered wallet provider: {provider_name}")
+
     
     def _init_executors(self) -> None:
         """Initialize exchange executors based on configuration."""

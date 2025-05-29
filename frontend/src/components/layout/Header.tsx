@@ -21,12 +21,19 @@ import {
 import { useAppSelector, useAppDispatch } from '../../store/store';
 import { toggleSidebar, toggleFullscreen } from '../../store/slices/uiSlice';
 import { setCurrentSymbol, setTimeframe } from '../../store/slices/marketDataSlice';
+import {
+  connectWalletStart,
+  connectWalletSuccess,
+  connectWalletFailure,
+  disconnectWallet,
+} from '../../store/slices/walletSlice';
 
 const Header: React.FC = () => {
   const dispatch = useAppDispatch();
   const { sidebarOpen, isFullscreen } = useAppSelector(state => state.ui);
   const { currentSymbol, timeframe, connectionStatus } = useAppSelector(state => state.marketData);
   const { isRunning } = useAppSelector(state => state.trading.botStatus);
+  const wallet = useAppSelector(state => state.wallet);
 
   const timeframes = ['1m', '5m', '15m', '1h', '4h', '1d'];
   const symbols = ['SOL/USDT', 'BTC/USDT', 'ETH/USDT', 'BNB/USDT'];
@@ -38,6 +45,36 @@ const Header: React.FC = () => {
       case 'disconnected': return 'error';
       default: return 'default';
     }
+  };
+
+  // Wallet connect handlers (stubbed for demo; real logic would use window.ethereum, etc.)
+  const handleConnectMetaMask = async () => {
+    dispatch(connectWalletStart('metamask'));
+    try {
+      // In production, use window.ethereum.request({ method: 'eth_requestAccounts' }) etc.
+      // Here, simulate connection
+      setTimeout(() => {
+        dispatch(connectWalletSuccess({ provider: 'metamask', address: '0x1234...abcd' }));
+      }, 500);
+    } catch (err: any) {
+      dispatch(connectWalletFailure('MetaMask connection failed'));
+    }
+  };
+
+  const handleConnectCoinbase = async () => {
+    dispatch(connectWalletStart('coinbase'));
+    try {
+      // In production, use Coinbase Wallet SDK
+      setTimeout(() => {
+        dispatch(connectWalletSuccess({ provider: 'coinbase', address: '0x9876...cdef' }));
+      }, 500);
+    } catch (err: any) {
+      dispatch(connectWalletFailure('Coinbase Wallet connection failed'));
+    }
+  };
+
+  const handleDisconnect = () => {
+    dispatch(disconnectWallet());
   };
 
   return (
@@ -115,6 +152,45 @@ const Header: React.FC = () => {
 
         {/* Spacer */}
         <Box sx={{ flexGrow: 1 }} />
+
+        {/* Wallet Connect UI */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 2 }}>
+          {!wallet.connected ? (
+            <>
+              <Chip
+                label="Connect MetaMask"
+                color="primary"
+                size="small"
+                onClick={handleConnectMetaMask}
+                disabled={wallet.connecting}
+                sx={{ cursor: 'pointer', fontWeight: 500 }}
+              />
+              <Chip
+                label="Connect Coinbase"
+                color="secondary"
+                size="small"
+                onClick={handleConnectCoinbase}
+                disabled={wallet.connecting}
+                sx={{ cursor: 'pointer', fontWeight: 500 }}
+              />
+            </>
+          ) : (
+            <>
+              <Chip
+                label={
+                  wallet.provider === 'metamask'
+                    ? `MetaMask: ${wallet.address}`
+                    : `Coinbase: ${wallet.address}`
+                }
+                color="success"
+                size="small"
+                sx={{ fontWeight: 500 }}
+                onDelete={handleDisconnect}
+                variant="outlined"
+              />
+            </>
+          )}
+        </Box>
 
         {/* Status Indicators */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

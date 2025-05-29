@@ -5,6 +5,7 @@ import marketDataReducer from './slices/marketDataSlice';
 import agentReducer from './slices/agentSlice';
 import tradingReducer from './slices/tradingSlice';
 import uiReducer from './slices/uiSlice';
+import walletReducer from './slices/walletSlice';
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     agents: agentReducer,
     trading: tradingReducer,
     ui: uiReducer,
+    wallet: walletReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
