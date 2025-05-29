@@ -20,5 +20,6 @@ echo "Checking service health..."
 curl -s http://localhost:9090/-/healthy > /dev/null && echo "✓ Prometheus is healthy" || echo "✗ Prometheus is not responding"
 curl -s http://localhost:3000/api/health > /dev/null && echo "✓ Grafana is healthy" || echo "✗ Grafana is not responding"
 curl -s http://localhost:9093/-/healthy > /dev/null && echo "✓ AlertManager is healthy" || echo "✗ AlertManager is not responding"
+curl -s http://localhost:9100/metrics > /dev/null && echo "✓ Node Exporter is healthy" || echo "✗ Node Exporter is not responding"
 
 echo "Monitoring setup complete!"
