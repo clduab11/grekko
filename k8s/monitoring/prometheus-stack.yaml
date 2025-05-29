@@ -1,0 +1,824 @@
+# Prometheus Monitoring Stack for Trading System
+# Comprehensive metrics collection, alerting, and observability
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    name: monitoring
+    istio-injection: enabled
+---
+# Prometheus Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: 'grekko-trading-prod'
+        environment: 'production'
+    
+    rule_files:
+    - "/etc/prometheus/rules/*.yml"
+    
+    alerting:
+      alertmanagers:
+      - static_configs:
+        - targets:
+          - alertmanager:9093
+    
+    scrape_configs:
+    # Kubernetes API Server
+    - job_name: 'kubernetes-apiservers'
+      kubernetes_sd_configs:
+      - role: endpoints
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: default;kubernetes;https
+    
+    # Kubernetes Nodes
+    - job_name: 'kubernetes-nodes'
+      kubernetes_sd_configs:
+      - role: node
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics
+    
+    # Kubernetes Pods
+    - job_name: 'kubernetes-pods'
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: kubernetes_pod_name
+    
+    # Trading Services
+    - job_name: 'trading-services'
+      kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: ['trading-prod']
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: kubernetes_pod_name
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_part_of]
+        action: keep
+        regex: trading-system
+
+    # Metamask Integration Service
+    - job_name: 'metamask-integration-service'
+      kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: ['trading-prod'] # Assuming it's in the same namespace
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_label_app] # Assuming app label is 'metamask-integration'
+        action: keep
+        regex: metamask-integration
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: kubernetes_pod_name
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_part_of]
+        action: keep
+        regex: trading-system # Assuming it's part of the same system
+     
+    # Database Metrics
+    - job_name: 'postgresql'
+      static_configs:
+      - targets: ['postgresql-exporter.trading-prod.svc.cluster.local:9187']
+      scrape_interval: 30s
+    
+    - job_name: 'redis'
+      static_configs:
+      - targets: ['redis-exporter.trading-prod.svc.cluster.local:9121']
+      scrape_interval: 30s
+    
+    - job_name: 'influxdb'
+      static_configs:
+      - targets: ['influxdb.trading-prod.svc.cluster.local:8086']
+      scrape_interval: 30s
+      metrics_path: /metrics
+    
+    # Message Bus Metrics
+    - job_name: 'kafka'
+      static_configs:
+      - targets: ['kafka-exporter.trading-prod.svc.cluster.local:9308']
+      scrape_interval: 30s
+    
+    # Istio Service Mesh
+    - job_name: 'istio-mesh'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - istio-system
+          - trading-prod
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: istio-proxy;http-monitoring
+      - source_labels: [__address__, __meta_kubernetes_endpoint_port_number]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:15090
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_endpoint_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        action: replace
+        target_label: kubernetes_name
+    
+    # Node Exporter
+    - job_name: 'node-exporter'
+      kubernetes_sd_configs:
+      - role: endpoints
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_endpoints_name]
+        regex: 'node-exporter'
+        action: keep
+  
+  alerts.yml: |
+    groups:
+    - name: trading-system-alerts
+      rules:
+      # High-level system alerts
+      - alert: TradingServiceDown
+        expr: up{job="trading-services"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Trading service {{ $labels.kubernetes_pod_name }} is down"
+          description: "Trading service {{ $labels.kubernetes_pod_name }} in namespace {{ $labels.kubernetes_namespace }} has been down for more than 1 minute."
+      
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, trading_order_execution_duration_seconds_bucket) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High order execution latency detected"
+          description: "95th percentile order execution latency is {{ $value }}s, exceeding 1s threshold."
+      
+      - alert: HighErrorRate
+        expr: rate(trading_errors_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate in trading system"
+          description: "Error rate is {{ $value }} errors per second over the last 5 minutes."
+      
+      # Database alerts
+      - alert: PostgreSQLDown
+        expr: up{job="postgresql"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database has been down for more than 1 minute."
+      
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache has been down for more than 1 minute."
+      
+      - alert: InfluxDBDown
+        expr: up{job="influxdb"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "InfluxDB is down"
+          description: "InfluxDB time-series database has been down for more than 1 minute."
+      
+      # Kafka alerts
+      - alert: KafkaDown
+        expr: up{job="kafka"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka is down"
+          description: "Kafka message bus has been down for more than 1 minute."
+      
+      - alert: KafkaConsumerLag
+        expr: kafka_consumer_lag_sum > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Kafka consumer lag"
+          description: "Kafka consumer lag is {{ $value }} messages."
+      
+      # Resource alerts
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "Container {{ $labels.name }} CPU usage is {{ $value }}%."
+      
+      - alert: HighMemoryUsage
+        expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Container {{ $labels.name }} memory usage is {{ $value }}%."
+      
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space on {{ $labels.instance }} is {{ $value }}% full."
+    
+    # Metamask Integration Service Specific Alerts
+    # Based on metrics defined in src/services/metamask_integration/metrics.py
+
+    # Security Alerts
+    - alert: MetamaskAuthFailureRateHigh
+       expr: sum(rate(metamask_auth_failures_total[5m])) by (job, instance, kubernetes_pod_name) > 5
+       for: 2m
+       labels:
+         severity: critical
+         service: metamask-integration
+       annotations:
+         summary: "High authentication failure rate for Metamask Integration ({{ $labels.kubernetes_pod_name }})"
+         description: "Metamask authentication failures are {{ $value }}/min for pod {{ $labels.kubernetes_pod_name }}. Check for brute-force attempts or credential issues."
+
+    - alert: MetamaskSuspiciousTransactionVolume
+      expr: sum(rate(metamask_suspicious_transactions_detected_total[10m])) by (job, instance, kubernetes_pod_name) > 0.5 # Lowered threshold for earlier detection
+       for: 5m
+       labels:
+         severity: warning
+         service: metamask-integration
+       annotations:
+         summary: "Suspicious transaction volume detected in Metamask Integration ({{ $labels.kubernetes_pod_name }})"
+         description: "Pod {{ $labels.kubernetes_pod_name }} detected {{ $value }} suspicious transactions per minute. Investigate transaction patterns."
+
+    - alert: MetamaskRpcConnectionErrorRateHigh
+      expr: sum(rate(metamask_rpc_connection_errors_total[5m])) by (job, instance, kubernetes_pod_name) > 3 # Increased threshold, rate per second was too low. This is now errors per 5min.
+       for: 5m
+       labels:
+         severity: warning
+         service: metamask-integration
+       annotations:
+         summary: "High RPC connection error rate for Metamask Integration ({{ $labels.kubernetes_pod_name }})"
+         description: "Metamask RPC connection error rate is {{ $value }} errors in the last 5 minutes for pod {{ $labels.kubernetes_pod_name }}. Check RPC provider status."
+     
+     - alert: MetamaskBrowserAutomationSecurityEventRateHigh
+       expr: sum(rate(metamask_browser_automation_security_events_total[5m])) by (job, instance, kubernetes_pod_name, event_type) > 0.2 # More than 1 event every 5 mins
+       for: 2m
+       labels:
+         severity: warning
+         service: metamask-integration
+       annotations:
+         summary: "High browser automation security event rate ({{ $labels.event_type }}) for Metamask Integration ({{ $labels.kubernetes_pod_name }})"
+         description: "Browser automation security event '{{ $labels.event_type }}' occurring at {{ $value }}/s for pod {{ $labels.kubernetes_pod_name }}."
+
+     # Performance Alerts
+     - alert: MetamaskApiLatencyHighP95
+       expr: histogram_quantile(0.95, sum(rate(metamask_api_request_duration_seconds_bucket[5m])) by (le, job, instance, kubernetes_pod_name, endpoint, method)) > 1.5 # 1.5 seconds
+       for: 5m
+       labels:
+         severity: warning
+         service: metamask-integration
+       annotations:
+         summary: "High P95 API latency for Metamask Integration ({{ $labels.kubernetes_pod_name }}, {{ $labels.method }} {{ $labels.endpoint }})"
+         description: "P95 API latency for {{ $labels.method }} {{ $labels.endpoint }} on pod {{ $labels.kubernetes_pod_name }} is {{ $value }}s."
+
+    - alert: MetamaskApiErrorRateHigh
+      expr: sum(rate(metamask_api_requests_failed_total[5m])) by (job, instance, kubernetes_pod_name, endpoint, method, status_code) / sum(rate(metamask_api_requests_total[5m])) by (job, instance, kubernetes_pod_name, endpoint, method) * 100 > 5 # 5% error rate
+       for: 5m
+       labels:
+         severity: warning
+         service: metamask-integration
+       annotations:
+         summary: "High API error rate for Metamask Integration ({{ $labels.kubernetes_pod_name }}, {{ $labels.method }} {{ $labels.endpoint }})"
+         description: "API error rate for {{ $labels.method }} {{ $labels.endpoint }} (status: {{ $labels.status_code }}) on pod {{ $labels.kubernetes_pod_name }} is {{ $value }}%."
+     
+    - alert: MetamaskKafkaProcessingLatencyHigh
+      expr: histogram_quantile(0.99, sum(rate(metamask_kafka_message_processing_duration_seconds_bucket[5m])) by (le, job, instance, kubernetes_pod_name, topic, partition)) > 2 # 2 seconds
+       for: 5m
+       labels:
+         severity: warning
+         service: metamask-integration
+       annotations:
+         summary: "High Kafka message processing latency for Metamask Integration ({{ $labels.kubernetes_pod_name }}, topic {{ $labels.topic }})"
+         description: "P99 Kafka message processing latency for topic {{ $labels.topic }} (partition {{ $labels.partition }}) on pod {{ $labels.kubernetes_pod_name }} is {{ $value }}s."
+
+     - alert: MetamaskBrowserOperationDurationHighP95
+       expr: histogram_quantile(0.95, sum(rate(metamask_browser_automation_duration_seconds_bucket[5m])) by (le, job, instance, kubernetes_pod_name, operation)) > 10 # 10 seconds for a browser operation
+       for: 3m
+       labels:
+         severity: warning
+         service: metamask-integration
+       annotations:
+         summary: "High P95 browser operation duration for Metamask Integration ({{ $labels.kubernetes_pod_name }}, {{ $labels.operation }})"
+         description: "P95 duration for browser operation '{{ $labels.operation }}' on pod {{ $labels.kubernetes_pod_name }} is {{ $value }}s."
+
+    # Business Metrics Alerts
+    - alert: MetamaskWalletConnectionFailureRateHigh
+      expr: sum(rate(metamask_wallet_connection_failed_total[10m])) by (job, instance, kubernetes_pod_name, failure_reason) / sum(rate(metamask_wallet_connection_attempts_total[10m])) by (job, instance, kubernetes_pod_name) * 100 > 10 # 10% failure rate
+       for: 10m
+       labels:
+         severity: warning
+         service: metamask-integration
+       annotations:
+         summary: "High wallet connection failure rate for Metamask Integration ({{ $labels.kubernetes_pod_name }})"
+         description: "Wallet connection failure rate on pod {{ $labels.kubernetes_pod_name }} is {{ $value }}% (reason: {{ $labels.failure_reason }})."
+
+    - alert: MetamaskTransactionFailureRateHigh
+      expr: sum(rate(metamask_transaction_failed_total[10m])) by (job, instance, kubernetes_pod_name, type, reason) / sum(rate(metamask_transaction_attempts_total[10m])) by (job, instance, kubernetes_pod_name, type) * 100 > 5 # 5% failure rate
+       for: 10m
+       labels:
+         severity: critical
+         service: metamask-integration
+       annotations:
+         summary: "High transaction failure rate for Metamask Integration ({{ $labels.kubernetes_pod_name }})"
+         description: "Transaction failure rate for type '{{ $labels.type }}' on pod {{ $labels.kubernetes_pod_name }} is {{ $value }}% (reason: {{ $labels.reason }})."
+
+    # Operational Alerts
+    - alert: MetamaskIntegrationServiceDown # Renamed for clarity and consistency
+      expr: up{job="metamask-integration-service"} == 0
+       for: 1m
+       labels:
+         severity: critical
+         service: metamask-integration
+       annotations:
+         summary: "Metamask Integration service {{ $labels.kubernetes_pod_name }} is down"
+         description: "Metamask Integration service {{ $labels.kubernetes_pod_name }} in namespace {{ $labels.kubernetes_namespace }} has been down for more than 1 minute."
+---
+# Prometheus Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+        app.kubernetes.io/part-of: monitoring-system
+        tier: monitoring
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      serviceAccountName: prometheus-service-account
+      securityContext:
+        fsGroup: 65534
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v2.45.0
+        ports:
+        - containerPort: 9090
+          name: web
+        args:
+        - '--config.file=/etc/prometheus/prometheus.yml'
+        - '--storage.tsdb.path=/prometheus'
+        - '--storage.tsdb.retention.time=30d'
+        - '--storage.tsdb.retention.size=50GB'
+        - '--web.console.libraries=/etc/prometheus/console_libraries'
+        - '--web.console.templates=/etc/prometheus/consoles'
+        - '--web.enable-lifecycle'
+        - '--web.enable-admin-api'
+        - '--log.level=info'
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        volumeMounts:
+        - name: prometheus-config
+          mountPath: /etc/prometheus
+        - name: prometheus-storage
+          mountPath: /prometheus
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: 9090
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: 9090
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: prometheus-config
+        configMap:
+          name: prometheus-config
+      - name: prometheus-storage
+        persistentVolumeClaim:
+          claimName: prometheus-storage-pvc
+---
+# Prometheus Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: monitoring
+  labels:
+    app: prometheus
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9090
+    targetPort: 9090
+    name: web
+  selector:
+    app: prometheus
+---
+# Prometheus Storage PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-storage-pvc
+  namespace: monitoring
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: fast-ssd
+  resources:
+    requests:
+      storage: 100Gi
+---
+# Prometheus Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-service-account
+  namespace: monitoring
+  labels:
+    app: prometheus
+---
+# Prometheus ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/proxy
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+---
+# Prometheus ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+- kind: ServiceAccount
+  name: prometheus-service-account
+  namespace: monitoring
+---
+# AlertManager Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+data:
+  alertmanager.yml: |
+    global:
+      smtp_smarthost: 'localhost:587'
+      smtp_from: 'alerts@grekko.trading'
+    
+    route:
+      group_by: ['alertname', 'cluster', 'service']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 1h
+      receiver: 'trading-team'
+      routes:
+      - match:
+          severity: critical
+        receiver: 'pager-duty'
+      - match:
+          service: risk-management
+        receiver: 'risk-team'
+      - match:
+          service: execution-engine
+        receiver: 'execution-team'
+    
+    receivers:
+    - name: 'trading-team'
+      email_configs:
+      - to: 'trading-team@grekko.trading'
+        subject: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          {{ end }}
+      slack_configs:
+      - api_url: 'SLACK_WEBHOOK_URL_PLACEHOLDER'
+        channel: '#trading-alerts'
+        title: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}
+    
+    - name: 'pager-duty'
+      pagerduty_configs:
+      - routing_key: 'PAGERDUTY_ROUTING_KEY_PLACEHOLDER'
+        description: '{{ .GroupLabels.alertname }}: {{ .Alerts.Firing | len }} firing'
+    
+    - name: 'risk-team'
+      email_configs:
+      - to: 'risk-team@grekko.trading'
+        subject: '[RISK ALERT] {{ .GroupLabels.alertname }}'
+    
+    - name: 'execution-team'
+      email_configs:
+      - to: 'execution-team@grekko.trading'
+        subject: '[EXECUTION ALERT] {{ .GroupLabels.alertname }}'
+---
+# AlertManager Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+        app.kubernetes.io/part-of: monitoring-system
+        tier: monitoring
+    spec:
+      containers:
+      - name: alertmanager
+        image: prom/alertmanager:v0.25.0
+        ports:
+        - containerPort: 9093
+          name: web
+        args:
+        - '--config.file=/etc/alertmanager/alertmanager.yml'
+        - '--storage.path=/alertmanager'
+        - '--web.external-url=http://alertmanager.monitoring.svc.cluster.local:9093'
+        - '--log.level=info'
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        volumeMounts:
+        - name: alertmanager-config
+          mountPath: /etc/alertmanager
+        - name: alertmanager-storage
+          mountPath: /alertmanager
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: 9093
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: 9093
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: alertmanager-config
+        configMap:
+          name: alertmanager-config
+      - name: alertmanager-storage
+        persistentVolumeClaim:
+          claimName: alertmanager-storage-pvc
+---
+# AlertManager Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: monitoring
+  labels:
+    app: alertmanager
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9093
+    targetPort: 9093
+    name: web
+  selector:
+    app: alertmanager
+---
+# AlertManager Storage PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: alertmanager-storage-pvc
+  namespace: monitoring
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Node Exporter DaemonSet
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+        app.kubernetes.io/part-of: monitoring-system
+        tier: monitoring
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - name: node-exporter
+        image: prom/node-exporter:v1.6.0
+        ports:
+        - containerPort: 9100
+          name: metrics
+        args:
+        - '--path.procfs=/host/proc'
+        - '--path.sysfs=/host/sys'
+        - '--path.rootfs=/host/root'
+        - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        volumeMounts:
+        - name: proc
+          mountPath: /host/proc
+          readOnly: true
+        - name: sys
+          mountPath: /host/sys
+          readOnly: true
+        - name: root
+          mountPath: /host/root
+          readOnly: true
+      volumes:
+      - name: proc
+        hostPath:
+          path: /proc
+      - name: sys
+        hostPath:
+          path: /sys
+      - name: root
+        hostPath:
+          path: /
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+---
+# Node Exporter Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-exporter
+  namespace: monitoring
+  labels:
+    app: node-exporter
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9100
+    targetPort: 9100
+    name: metrics
+  selector:
+    app: node-exporter

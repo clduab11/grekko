@@ -1,0 +1,582 @@
+# Apache Kafka Cluster Configuration for Trading System
+# High-throughput message bus for event streaming
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-config
+  namespace: trading-prod
+data:
+  server.properties: |
+    # Broker Configuration
+    broker.id=-1
+    listeners=PLAINTEXT://:9092,CONTROLLER://:9093
+    advertised.listeners=PLAINTEXT://kafka-${HOSTNAME##*-}.kafka-headless.trading-prod.svc.cluster.local:9092
+    listener.security.protocol.map=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+    inter.broker.listener.name=PLAINTEXT
+    controller.listener.names=CONTROLLER
+    controller.quorum.voters=0@kafka-0.kafka-headless.trading-prod.svc.cluster.local:9093,1@kafka-1.kafka-headless.trading-prod.svc.cluster.local:9093,2@kafka-2.kafka-headless.trading-prod.svc.cluster.local:9093
+    
+    # Cluster Configuration
+    num.network.threads=8
+    num.io.threads=16
+    socket.send.buffer.bytes=102400
+    socket.receive.buffer.bytes=102400
+    socket.request.max.bytes=104857600
+    
+    # Log Configuration
+    log.dirs=/var/lib/kafka/data
+    num.partitions=6
+    num.recovery.threads.per.data.dir=2
+    offsets.topic.replication.factor=3
+    transaction.state.log.replication.factor=3
+    transaction.state.log.min.isr=2
+    default.replication.factor=3
+    min.insync.replicas=2
+    
+    # Log Retention
+    log.retention.hours=168
+    log.retention.bytes=1073741824
+    log.segment.bytes=1073741824
+    log.retention.check.interval.ms=300000
+    log.cleanup.policy=delete
+    
+    # Performance Tuning
+    replica.fetch.max.bytes=1048576
+    message.max.bytes=1000000
+    replica.fetch.wait.max.ms=500
+    fetch.purgatory.purge.interval.requests=1000
+    producer.purgatory.purge.interval.requests=1000
+    
+    # Compression
+    compression.type=snappy
+    
+    # Group Coordinator
+    group.initial.rebalance.delay.ms=3000
+    group.max.session.timeout.ms=1800000
+    group.min.session.timeout.ms=6000
+    
+    # Security
+    security.inter.broker.protocol=PLAINTEXT
+    sasl.enabled.mechanisms=PLAIN
+    sasl.mechanism.inter.broker.protocol=PLAIN
+    
+    # Metrics
+    metric.reporters=org.apache.kafka.common.metrics.JmxReporter
+    jmx.port=9999
+    
+    # Auto Topic Creation
+    auto.create.topics.enable=false
+    delete.topic.enable=true
+    
+    # Controller Configuration
+    process.roles=broker,controller
+    node.id=-1
+    controller.quorum.election.timeout.ms=1000
+    controller.quorum.fetch.timeout.ms=2000
+    controller.quorum.retry.backoff.ms=20
+    
+    # Log4j Configuration
+    log4j.rootLogger=INFO, stdout, kafkaAppender
+    log4j.appender.stdout=org.apache.log4j.ConsoleAppender
+    log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
+    log4j.appender.stdout.layout.ConversionPattern=[%d] %p %m (%c)%n
+---
+# Kafka Headless Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-headless
+  namespace: trading-prod
+  labels:
+    app: kafka
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - port: 9092
+    targetPort: 9092
+    name: kafka
+  - port: 9093
+    targetPort: 9093
+    name: controller
+  - port: 9999
+    targetPort: 9999
+    name: jmx
+  selector:
+    app: kafka
+---
+# Kafka Client Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: trading-prod
+  labels:
+    app: kafka
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9092
+    targetPort: 9092
+    name: kafka
+  selector:
+    app: kafka
+---
+# Kafka StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  namespace: trading-prod
+spec:
+  serviceName: kafka-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+        app.kubernetes.io/part-of: trading-system
+        tier: messaging
+    spec:
+      serviceAccountName: kafka-service-account
+      securityContext:
+        fsGroup: 1001
+      initContainers:
+      - name: kafka-init
+        image: confluentinc/cp-kafka:7.4.0
+        command:
+        - /bin/bash
+        - -c
+        - |
+          # Set broker ID based on pod ordinal
+          export KAFKA_BROKER_ID=${HOSTNAME##*-}
+          export KAFKA_NODE_ID=${HOSTNAME##*-}
+          
+          # Create directories
+          mkdir -p /var/lib/kafka/data
+          mkdir -p /var/lib/kafka/logs
+          
+          # Copy and customize config
+          cp /etc/kafka-config/server.properties /var/lib/kafka/server.properties
+          sed -i "s/broker.id=-1/broker.id=${KAFKA_BROKER_ID}/" /var/lib/kafka/server.properties
+          sed -i "s/node.id=-1/node.id=${KAFKA_NODE_ID}/" /var/lib/kafka/server.properties
+          
+          # Set ownership
+          chown -R 1001:1001 /var/lib/kafka
+        volumeMounts:
+        - name: kafka-data
+          mountPath: /var/lib/kafka
+        - name: kafka-config
+          mountPath: /etc/kafka-config
+        securityContext:
+          runAsUser: 0
+      containers:
+      - name: kafka
+        image: confluentinc/cp-kafka:7.4.0
+        ports:
+        - containerPort: 9092
+          name: kafka
+        - containerPort: 9093
+          name: controller
+        - containerPort: 9999
+          name: jmx
+        env:
+        - name: KAFKA_HEAP_OPTS
+          value: "-Xmx1G -Xms1G"
+        - name: KAFKA_JVM_PERFORMANCE_OPTS
+          value: "-server -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -Djava.awt.headless=true"
+        - name: KAFKA_LOG4J_OPTS
+          value: "-Dlog4j.configuration=file:/var/lib/kafka/log4j.properties"
+        command:
+        - /bin/bash
+        - -c
+        - |
+          export KAFKA_BROKER_ID=${HOSTNAME##*-}
+          export KAFKA_NODE_ID=${HOSTNAME##*-}
+          exec /etc/confluent/docker/run
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        volumeMounts:
+        - name: kafka-data
+          mountPath: /var/lib/kafka
+        - name: kafka-config
+          mountPath: /etc/kafka-config
+        livenessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "kafka-broker-api-versions --bootstrap-server localhost:9092"
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "kafka-broker-api-versions --bootstrap-server localhost:9092"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+      volumes:
+      - name: kafka-config
+        configMap:
+          name: kafka-config
+  volumeClaimTemplates:
+  - metadata:
+      name: kafka-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: fast-ssd
+      resources:
+        requests:
+          storage: 100Gi
+---
+# Kafka Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kafka-service-account
+  namespace: trading-prod
+  labels:
+    app: kafka
+---
+# Kafka Topic Creation Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topics-init
+  namespace: trading-prod
+spec:
+  template:
+    spec:
+      serviceAccountName: kafka-service-account
+      restartPolicy: OnFailure
+      containers:
+      - name: kafka-topics-init
+        image: confluentinc/cp-kafka:7.4.0
+        command:
+        - /bin/bash
+        - -c
+        - |
+          # Wait for Kafka to be ready
+          until kafka-broker-api-versions --bootstrap-server kafka:9092; do
+            echo "Waiting for Kafka..."
+            sleep 10
+          done
+          
+          # Create trading topics
+          kafka-topics --create --bootstrap-server kafka:9092 --topic market-data --partitions 12 --replication-factor 3 --config retention.ms=86400000 --config compression.type=snappy || true
+          kafka-topics --create --bootstrap-server kafka:9092 --topic trade-events --partitions 6 --replication-factor 3 --config retention.ms=604800000 --config compression.type=snappy || true
+          kafka-topics --create --bootstrap-server kafka:9092 --topic risk-alerts --partitions 3 --replication-factor 3 --config retention.ms=2592000000 --config compression.type=snappy || true
+          kafka-topics --create --bootstrap-server kafka:9092 --topic agent-coordination --partitions 3 --replication-factor 3 --config retention.ms=86400000 --config compression.type=snappy || true
+          kafka-topics --create --bootstrap-server kafka:9092 --topic execution-orders --partitions 6 --replication-factor 3 --config retention.ms=604800000 --config compression.type=snappy || true
+          kafka-topics --create --bootstrap-server kafka:9092 --topic strategy-signals --partitions 6 --replication-factor 3 --config retention.ms=86400000 --config compression.type=snappy || true
+          kafka-topics --create --bootstrap-server kafka:9092 --topic wallet-transactions --partitions 3 --replication-factor 3 --config retention.ms=2592000000 --config compression.type=snappy || true
+          kafka-topics --create --bootstrap-server kafka:9092 --topic mcp-events --partitions 3 --replication-factor 3 --config retention.ms=86400000 --config compression.type=snappy || true
+          kafka-topics --create --bootstrap-server kafka:9092 --topic system-metrics --partitions 6 --replication-factor 3 --config retention.ms=604800000 --config compression.type=snappy || true
+          kafka-topics --create --bootstrap-server kafka:9092 --topic audit-logs --partitions 3 --replication-factor 3 --config retention.ms=7776000000 --config compression.type=snappy || true
+          
+          # List created topics
+          kafka-topics --list --bootstrap-server kafka:9092
+          
+          echo "Kafka topics initialization completed"
+---
+# Kafka Exporter for Prometheus
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-exporter
+  namespace: trading-prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-exporter
+  template:
+    metadata:
+      labels:
+        app: kafka-exporter
+        app.kubernetes.io/part-of: trading-system
+        tier: monitoring
+    spec:
+      containers:
+      - name: kafka-exporter
+        image: danielqsj/kafka-exporter:latest
+        ports:
+        - containerPort: 9308
+          name: metrics
+        args:
+        - --kafka.server=kafka:9092
+        - --web.listen-address=:9308
+        - --log.level=info
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: 9308
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 9308
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+# Kafka Exporter Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-exporter
+  namespace: trading-prod
+  labels:
+    app: kafka-exporter
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9308
+    targetPort: 9308
+    name: metrics
+  selector:
+    app: kafka-exporter
+---
+# Kafka Manager (CMAK) Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-manager
+  namespace: trading-prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-manager
+  template:
+    metadata:
+      labels:
+        app: kafka-manager
+        app.kubernetes.io/part-of: trading-system
+        tier: management
+    spec:
+      containers:
+      - name: kafka-manager
+        image: hlebalbau/kafka-manager:stable
+        ports:
+        - containerPort: 9000
+          name: http
+        env:
+        - name: ZK_HOSTS
+          value: "zookeeper:2181"
+        - name: APPLICATION_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: kafka-credentials
+              key: manager-secret
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 9000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 9000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+---
+# Kafka Manager Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-manager
+  namespace: trading-prod
+  labels:
+    app: kafka-manager
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9000
+    targetPort: 9000
+    name: http
+  selector:
+    app: kafka-manager
+---
+# ZooKeeper StatefulSet (for Kafka Manager)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+  namespace: trading-prod
+spec:
+  serviceName: zookeeper-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+        app.kubernetes.io/part-of: trading-system
+        tier: coordination
+    spec:
+      serviceAccountName: kafka-service-account
+      containers:
+      - name: zookeeper
+        image: confluentinc/cp-zookeeper:7.4.0
+        ports:
+        - containerPort: 2181
+          name: client
+        - containerPort: 2888
+          name: server
+        - containerPort: 3888
+          name: leader-election
+        env:
+        - name: ZOOKEEPER_CLIENT_PORT
+          value: "2181"
+        - name: ZOOKEEPER_SERVER_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: ZOOKEEPER_SERVERS
+          value: "zookeeper-0.zookeeper-headless.trading-prod.svc.cluster.local:2888:3888;zookeeper-1.zookeeper-headless.trading-prod.svc.cluster.local:2888:3888;zookeeper-2.zookeeper-headless.trading-prod.svc.cluster.local:2888:3888"
+        - name: ZOOKEEPER_TICK_TIME
+          value: "2000"
+        - name: ZOOKEEPER_INIT_LIMIT
+          value: "5"
+        - name: ZOOKEEPER_SYNC_LIMIT
+          value: "2"
+        - name: ZOOKEEPER_HEAP_SIZE
+          value: "512M"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        volumeMounts:
+        - name: zookeeper-data
+          mountPath: /var/lib/zookeeper/data
+        - name: zookeeper-logs
+          mountPath: /var/lib/zookeeper/log
+        livenessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "echo ruok | nc localhost 2181 | grep imok"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - "echo ruok | nc localhost 2181 | grep imok"
+          initialDelaySeconds: 5
+          periodSeconds: 5
+  volumeClaimTemplates:
+  - metadata:
+      name: zookeeper-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: fast-ssd
+      resources:
+        requests:
+          storage: 10Gi
+  - metadata:
+      name: zookeeper-logs
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: fast-ssd
+      resources:
+        requests:
+          storage: 10Gi
+---
+# ZooKeeper Headless Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper-headless
+  namespace: trading-prod
+  labels:
+    app: zookeeper
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - port: 2181
+    targetPort: 2181
+    name: client
+  - port: 2888
+    targetPort: 2888
+    name: server
+  - port: 3888
+    targetPort: 3888
+    name: leader-election
+  selector:
+    app: zookeeper
+---
+# ZooKeeper Client Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  namespace: trading-prod
+  labels:
+    app: zookeeper
+spec:
+  type: ClusterIP
+  ports:
+  - port: 2181
+    targetPort: 2181
+    name: client
+  selector:
+    app: zookeeper
+---
+# Kafka Monitoring ServiceMonitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kafka-metrics
+  namespace: trading-prod
+  labels:
+    app: kafka
+spec:
+  selector:
+    matchLabels:
+      app: kafka-exporter
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics

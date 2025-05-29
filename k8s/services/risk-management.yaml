@@ -1,0 +1,108 @@
+# Risk Management Service Kubernetes Deployment
+# High-availability, resource-optimized, and auto-scaled for real-time risk processing
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: risk-management
+  labels:
+    app: risk-management
+spec:
+  replicas: 3  # High-availability
+  selector:
+    matchLabels:
+      app: risk-management
+  template:
+    metadata:
+      labels:
+        app: risk-management
+    spec:
+      containers:
+        - name: risk-management
+          image: grekko/risk-management:latest
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+          envFrom:
+            - configMapRef:
+                name: risk-management-config
+            - secretRef:
+                name: risk-management-secrets
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: risk-config
+              mountPath: /app/config
+      volumes:
+        - name: risk-config
+          configMap:
+            name: risk-management-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: risk-management
+  labels:
+    app: risk-management
+spec:
+  type: ClusterIP
+  selector:
+    app: risk-management
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: risk-management-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: risk-management
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60

@@ -38,8 +38,9 @@ class BinanceConnector:
         error_counts (Dict[str, int]): Count of errors by category
     """
     
-    def __init__(self, testnet: bool = False, use_credentials: bool = True, 
-                circuit_breaker: Optional[CircuitBreaker] = None):
+    def __init__(self, testnet: bool = False, use_credentials: bool = True,
+                circuit_breaker: Optional[CircuitBreaker] = None,
+                api_key: Optional[str] = None, api_secret: Optional[str] = None):
         """
         Initialize the Binance connector with secure credentials.
         
@@ -47,12 +48,18 @@ class BinanceConnector:
             testnet (bool): Whether to use the testnet (default: False)
             use_credentials (bool): Whether to load credentials from vault (default: True)
             circuit_breaker (Optional[CircuitBreaker]): Circuit breaker instance or None to create new
+            api_key (Optional[str]): Binance API key (overrides credentials manager if provided)
+            api_secret (Optional[str]): Binance API secret (overrides credentials manager if provided)
         """
         self.logger = get_logger('binance_connector')
         self.logger.info(f"Initializing Binance connector (testnet: {testnet})")
         
         # Initialize credentials securely
-        if use_credentials:
+        if api_key is not None and api_secret is not None:
+            self.api_key = api_key
+            self.api_secret = api_secret
+            self.logger.info("Loaded API key/secret from constructor arguments")
+        elif use_credentials:
             try:
                 cred_manager = CredentialsManager()
                 credentials = cred_manager.get_credentials('binance')

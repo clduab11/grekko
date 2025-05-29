@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metamask-integration
+  labels:
+    app: metamask-integration
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metamask-integration
+  template:
+    metadata:
+      labels:
+        app: metamask-integration
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8000"
+    spec:
+      containers:
+        - name: metamask-integration
+          image: your-docker-repo/metamask-integration:latest
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ENVIRONMENT
+              value: "production"
+          # Add browser automation support (e.g., Chrome/Chromium) as needed
+          # volumeMounts:
+          #   - name: browser-cache
+          #     mountPath: /tmp/browser-cache
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      # volumes:
+      #   - name: browser-cache
+      #     emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metamask-integration
+spec:
+  selector:
+    app: metamask-integration
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP

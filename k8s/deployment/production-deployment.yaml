@@ -1,0 +1,700 @@
+# Production Deployment Strategy for Grekko Trading System
+# Blue-Green Deployment with Zero-Downtime Updates
+# Comprehensive monitoring, backup, and disaster recovery
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trading-prod
+  labels:
+    name: trading-prod
+    environment: production
+    istio-injection: enabled
+---
+# Production Environment ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: production-config
+  namespace: trading-prod
+data:
+  environment: "production"
+  log_level: "INFO"
+  metrics_enabled: "true"
+  tracing_enabled: "true"
+  backup_enabled: "true"
+  disaster_recovery_enabled: "true"
+  blue_green_deployment: "true"
+  health_check_interval: "30s"
+  readiness_timeout: "60s"
+  liveness_timeout: "30s"
+---
+# Secret Management Configuration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: trading-secrets
+  namespace: trading-prod
+type: Opaque
+data:
+  # Secrets will be injected via external secret management
+  # These are placeholders for the secret keys
+  database_url: ""
+  redis_url: ""
+  kafka_brokers: ""
+  coinbase_api_key: ""
+  coinbase_api_secret: ""
+  metamask_private_key: ""
+  prometheus_auth_token: ""
+  grafana_admin_password: ""
+  slack_webhook_url: ""
+  pagerduty_routing_key: ""
+---
+# Blue-Green Deployment Service (Active)
+apiVersion: v1
+kind: Service
+metadata:
+  name: trading-system-active
+  namespace: trading-prod
+  labels:
+    app: trading-system
+    version: active
+    deployment-strategy: blue-green
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  - port: 443
+    targetPort: 8443
+    name: https
+  - port: 9090
+    targetPort: 9090
+    name: metrics
+  selector:
+    app: trading-system
+    version: active
+---
+# Blue-Green Deployment Service (Standby)
+apiVersion: v1
+kind: Service
+metadata:
+  name: trading-system-standby
+  namespace: trading-prod
+  labels:
+    app: trading-system
+    version: standby
+    deployment-strategy: blue-green
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  - port: 443
+    targetPort: 8443
+    name: https
+  - port: 9090
+    targetPort: 9090
+    name: metrics
+  selector:
+    app: trading-system
+    version: standby
+---
+# Production Load Balancer Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: trading-system-lb
+  namespace: trading-prod
+  labels:
+    app: trading-system
+    tier: load-balancer
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:region:account:certificate/cert-id"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 443
+    targetPort: 8443
+    name: https
+  - port: 80
+    targetPort: 8080
+    name: http
+  selector:
+    app: trading-system
+    version: active
+---
+# Coinbase Integration Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coinbase-integration-active
+  namespace: trading-prod
+  labels:
+    app: coinbase-integration
+    version: active
+    app.kubernetes.io/part-of: trading-system
+    tier: critical
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: coinbase-integration
+      version: active
+  template:
+    metadata:
+      labels:
+        app: coinbase-integration
+        version: active
+        app.kubernetes.io/part-of: trading-system
+        tier: critical
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: trading-service-account
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+      - name: coinbase-integration
+        image: grekko/coinbase-integration:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 9090
+          name: metrics
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: COINBASE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: trading-secrets
+              key: coinbase_api_key
+        - name: COINBASE_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: trading-secrets
+              key: coinbase_api_secret
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: trading-secrets
+              key: database_url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: trading-secrets
+              key: redis_url
+        - name: KAFKA_BROKERS
+          valueFrom:
+            secretKeyRef:
+              name: trading-secrets
+              key: kafka_brokers
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+        - name: logs-volume
+          mountPath: /app/logs
+      volumes:
+      - name: config-volume
+        configMap:
+          name: production-config
+      - name: logs-volume
+        emptyDir: {}
+      nodeSelector:
+        node-type: application
+        performance-tier: high
+      tolerations:
+      - key: "trading-workload"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+---
+# MetaMask Integration Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metamask-integration-active
+  namespace: trading-prod
+  labels:
+    app: metamask-integration
+    version: active
+    app.kubernetes.io/part-of: trading-system
+    tier: critical
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: metamask-integration
+      version: active
+  template:
+    metadata:
+      labels:
+        app: metamask-integration
+        version: active
+        app.kubernetes.io/part-of: trading-system
+        tier: critical
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: trading-service-account
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+      - name: metamask-integration
+        image: grekko/metamask-integration:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 9090
+          name: metrics
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: METAMASK_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: trading-secrets
+              key: metamask_private_key
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: trading-secrets
+              key: database_url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: trading-secrets
+              key: redis_url
+        - name: KAFKA_BROKERS
+          valueFrom:
+            secretKeyRef:
+              name: trading-secrets
+              key: kafka_brokers
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+        - name: logs-volume
+          mountPath: /app/logs
+        - name: browser-data
+          mountPath: /app/browser-data
+      volumes:
+      - name: config-volume
+        configMap:
+          name: production-config
+      - name: logs-volume
+        emptyDir: {}
+      - name: browser-data
+        emptyDir:
+          sizeLimit: 1Gi
+      nodeSelector:
+        node-type: application
+        performance-tier: high
+      tolerations:
+      - key: "trading-workload"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+---
+# Risk Management Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: risk-management-active
+  namespace: trading-prod
+  labels:
+    app: risk-management
+    version: active
+    app.kubernetes.io/part-of: trading-system
+    tier: critical
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: risk-management
+      version: active
+  template:
+    metadata:
+      labels:
+        app: risk-management
+        version: active
+        app.kubernetes.io/part-of: trading-system
+        tier: critical
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: trading-service-account
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+      - name: risk-management
+        image: grekko/risk-management:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 9090
+          name: metrics
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: trading-secrets
+              key: database_url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: trading-secrets
+              key: redis_url
+        - name: KAFKA_BROKERS
+          valueFrom:
+            secretKeyRef:
+              name: trading-secrets
+              key: kafka_brokers
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+        - name: logs-volume
+          mountPath: /app/logs
+      volumes:
+      - name: config-volume
+        configMap:
+          name: production-config
+      - name: logs-volume
+        emptyDir: {}
+      nodeSelector:
+        node-type: application
+        performance-tier: high
+      tolerations:
+      - key: "trading-workload"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+---
+# Agent Coordination Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-coordination-active
+  namespace: trading-prod
+  labels:
+    app: agent-coordination
+    version: active
+    app.kubernetes.io/part-of: trading-system
+    tier: critical
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: agent-coordination
+      version: active
+  template:
+    metadata:
+      labels:
+        app: agent-coordination
+        version: active
+        app.kubernetes.io/part-of: trading-system
+        tier: critical
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: trading-service-account
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+      - name: agent-coordination
+        image: grekko/agent-coordination:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 9090
+          name: metrics
+        - containerPort: 8081
+          name: websocket
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: trading-secrets
+              key: database_url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: trading-secrets
+              key: redis_url
+        - name: KAFKA_BROKERS
+          valueFrom:
+            secretKeyRef:
+              name: trading-secrets
+              key: kafka_brokers
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+        - name: logs-volume
+          mountPath: /app/logs
+      volumes:
+      - name: config-volume
+        configMap:
+          name: production-config
+      - name: logs-volume
+        emptyDir: {}
+      nodeSelector:
+        node-type: application
+        performance-tier: high
+      tolerations:
+      - key: "trading-workload"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+---
+# Trading Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: trading-service-account
+  namespace: trading-prod
+  labels:
+    app.kubernetes.io/part-of: trading-system
+---
+# Trading Service Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: trading-prod
+  name: trading-service-role
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch"]
+---
+# Trading Service Role Binding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: trading-service-role-binding
+  namespace: trading-prod
+subjects:
+- kind: ServiceAccount
+  name: trading-service-account
+  namespace: trading-prod
+roleRef:
+  kind: Role
+  name: trading-service-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Production Ingress with TLS
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: trading-system-ingress
+  namespace: trading-prod
+  annotations:
+    kubernetes.io/ingress.class: "istio"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+spec:
+  tls:
+  - hosts:
+    - api.grekko.trading
+    - metamask.grekko.trading
+    - risk.grekko.trading
+    - coordination.grekko.trading
+    secretName: trading-system-tls
+  rules:
+  - host: api.grekko.trading
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: trading-system-active
+            port:
+              number: 80
+  - host: metamask.grekko.trading
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: metamask-integration-active
+            port:
+              number: 80
+  - host: risk.grekko.trading
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: risk-management-active
+            port:
+              number: 80
+  - host: coordination.grekko.trading
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: agent-coordination-active
+            port:
+              number: 80

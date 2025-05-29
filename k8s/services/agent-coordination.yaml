@@ -1,0 +1,112 @@
+# Kubernetes Deployment for Agent Coordination Service
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-coordination
+  labels:
+    app: agent-coordination
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: agent-coordination
+  template:
+    metadata:
+      labels:
+        app: agent-coordination
+    spec:
+      containers:
+        - name: agent-coordination
+          image: your-registry/agent-coordination:latest
+          resources:
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: agent-coordination-secrets
+            - configMapRef:
+                name: agent-coordination-config
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          volumeMounts:
+            - name: config-volume
+              mountPath: /app/config
+      volumes:
+        - name: config-volume
+          configMap:
+            name: agent-coordination-config
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 3000
+        fsGroup: 2000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-coordination
+  labels:
+    app: agent-coordination
+spec:
+  type: ClusterIP
+  selector:
+    app: agent-coordination
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: agent-coordination-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: agent-coordination
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: agent-coordination
+spec:
+  hosts:
+    - "agent-coordination.yourdomain.svc.cluster.local"
+  gateways:
+    - mesh
+  http:
+    - route:
+        - destination:
+            host: agent-coordination
+            port:
+              number: 80
+      retries:
+        attempts: 3
+        perTryTimeout: 2s
+        retryOn: gateway-error,connect-failure,refused-stream

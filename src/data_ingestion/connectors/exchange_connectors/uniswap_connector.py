@@ -2,13 +2,16 @@ import logging
 from web3 import Web3
 from web3.middleware import geth_poa_middleware
 from web3.contract import Contract
-from thegraph import TheGraphClient
+from gql import Client, gql
+from gql.transport.aiohttp import AIOHTTPTransport
+import asyncio
 
 class UniswapConnector:
     def __init__(self, provider_url, graph_url):
         self.web3 = Web3(Web3.HTTPProvider(provider_url))
         self.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
-        self.graph_client = TheGraphClient(graph_url)
+        self.graph_url = graph_url
+        self.transport = AIOHTTPTransport(url=graph_url)
         self.logger = logging.getLogger(__name__)
 
     def get_contract(self, address, abi) -> Contract:
@@ -18,8 +21,8 @@ class UniswapConnector:
         event_filter = contract.events.PoolInitialized.createFilter(fromBlock='latest')
         return event_filter.get_all_entries()
 
-    def optimal_swap_routing(self, from_token, to_token, amount):
-        query = """
+    async def optimal_swap_routing(self, from_token, to_token, amount):
+        query = gql("""
         {
             swaps(where: {from: "%s", to: "%s", amount: %d}) {
                 id
@@ -29,9 +32,10 @@ class UniswapConnector:
                 path
             }
         }
-        """ % (from_token, to_token, amount)
-        result = self.graph_client.query(query)
-        return result['data']['swaps']
+        """ % (from_token, to_token, amount))
+        async with Client(transport=self.transport, fetch_schema_from_transport=True) as session:
+            result = await session.execute(query)
+        return result['swaps']
 
     def mev_resistant_transaction_bundling(self, transactions):
         # Implement MEV-resistant transaction bundling logic here
